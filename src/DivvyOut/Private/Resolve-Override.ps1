@@ -103,6 +103,12 @@ function Resolve-Override {
         $hit = Find-OverridePerson $o.Key $keyRules $indexes
         if (-not $hit.Kind) { if ($hit.Multiple) { $multi += $o } else { $noHit += $o }; continue }
         $o.TargetKind = $hit.Kind; $o.TargetRows = $hit.Rows; $o.TargetUser = $hit.User; $o.KeyRule = $hit.Rule
+        # A usage key whose rows all matched one directory user means that person: all of their rows,
+        # including rows under an alias or a username (DECISIONS D78). LinkTo keeps it row by row.
+        if ($hit.Kind -eq 'Usage' -and -not $o.LinkTo) {
+            $ids = @($hit.Rows | ForEach-Object { if ($_.User) { $_.User.Id } else { '' } } | Select-Object -Unique)
+            if ($ids.Count -eq 1 -and $ids[0]) { $o.TargetKind = 'User'; $o.TargetUser = $hit.Rows[0].User }
+        }
         if ($o.LinkTo) {
             if ($hit.Kind -ne 'Usage') { $linkNeedsUsage += $o; continue }
             $link = Find-OverridePerson $o.LinkTo $keyRules $indexes -DirectoryOnly
@@ -112,8 +118,9 @@ function Resolve-Override {
         if ($o.Manager) {
             $key = ConvertTo-NormalizedValue $o.Manager $cfg.Overrides.ManagerLookup.Normalize
             $list = $null
-            if ($key -and $mgrIdx.TryGetValue($key, [ref]$list) -and $list.Count -eq 1) { $o.ManagerUser = $list[0] }
-            else { $mgrText += $o }
+            $found = @(if ($key -and $mgrIdx.TryGetValue($key, [ref]$list)) { $list })
+            if ($found.Count -gt 1 -and $cfg.Match.PreferEnabled) { $live = @($found | Where-Object Enabled); if ($live.Count) { $found = $live } }
+            if ($found.Count -eq 1) { $o.ManagerUser = $found[0] } else { $mgrText += $o }
         }
     }
     & $flagBad $noHit 'OverrideNoHit' 'Key finds nobody (no usage row, no directory user).'
@@ -143,31 +150,41 @@ function Resolve-Override {
     }
     $byUser = @{}
     foreach ($o in $ok | Where-Object TargetKind -eq 'User') { $byUser[$o.TargetUser.Id] = $o }
+    # One override acts on a row. Exception: a LinkTo line that only links can be followed by the linked
+    # person's own override (link first, then that person's Manager / CostCenter / Exclude / Include).
+    $hasAction = { param($o) [bool]($o.Manager -or $o.CostCenter -or $o.Exclude -or $o.Include) }
     $conflict = [System.Collections.Generic.HashSet[object]]::new()
     $apply = @{}
     foreach ($row in $Result.Rows) {
-        $set = [System.Collections.Generic.HashSet[object]]::new()
-        if ($byRow.ContainsKey($row.RowNumber)) { foreach ($o in $byRow[$row.RowNumber]) { [void]$set.Add($o) } }
-        $users = @($set | Where-Object LinkUser | ForEach-Object LinkUser) + @($row.User)
-        foreach ($u in $users) { if ($u -and $byUser.ContainsKey($u.Id)) { [void]$set.Add($byUser[$u.Id]) } }
-        if ($set.Count -gt 1) { foreach ($o in $set) { [void]$conflict.Add($o) } }
-        elseif ($set.Count -eq 1) { $apply[$row.RowNumber] = @($set)[0] }
+        $own = @(if ($byRow.ContainsKey($row.RowNumber)) { $byRow[$row.RowNumber] })
+        if ($own.Count -gt 1) { foreach ($o in $own) { [void]$conflict.Add($o) }; continue }
+        $who = if ($own.Count -and $own[0].LinkUser) { $own[0].LinkUser } else { $row.User }
+        $person = if ($who -and $byUser.ContainsKey($who.Id)) { $byUser[$who.Id] } else { $null }
+        if ($own.Count -and $person) {
+            if ($own[0].LinkUser -and -not (& $hasAction $own[0])) { $apply[$row.RowNumber] = @{ Link = $own[0]; Act = $person } }
+            else { [void]$conflict.Add($own[0]); [void]$conflict.Add($person) }
+        }
+        elseif ($own.Count) { $apply[$row.RowNumber] = @{ Link = $(if ($own[0].LinkUser) { $own[0] }); Act = $own[0] } }
+        elseif ($person) { $apply[$row.RowNumber] = @{ Link = $null; Act = $person } }
     }
     & $flagBad @($conflict) 'OverrideConflict' 'more than one override applies to the same usage row.'
 
     foreach ($row in $Result.Rows) {
-        $o = $apply[$row.RowNumber]
-        if (-not $o -or $o.Status -ne 'OK') { continue }
-        $row.Override = $o
-        $o.AppliedRows++
-        if ($o.LinkUser) {
-            $row.User = $o.LinkUser
-            $row.MatchStatus = if ($o.LinkUser.Enabled) { 'Linked' } else { 'Disabled' }
+        $a = $apply[$row.RowNumber]
+        if (-not $a -or $a.Act.Status -ne 'OK' -or ($a.Link -and $a.Link.Status -ne 'OK')) { continue }
+        if ($a.Link) {
+            $l = $a.Link
+            $row.User = $l.LinkUser
+            $row.MatchStatus = if ($l.LinkUser.Enabled) { 'Linked' } else { 'Disabled' }
             $row.MatchRule = $null
-            $row.Candidates = @($o.LinkUser.Id)
-            $row.MatchValue = $o.LinkTo
+            $row.Candidates = @($l.LinkUser.Id)
+            $row.MatchValue = $l.LinkTo
             $row.MatchDirValue = $null
+            $row.LinkOverride = $l
+            $l.AppliedRows++
         }
+        $row.Override = $a.Act
+        if ($a.Act -ne $a.Link) { $a.Act.AppliedRows++ }
     }
 
     # Overrides that touch no usage row: a manager fix for the org tree is fine; anything else is stale.

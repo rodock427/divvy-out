@@ -86,6 +86,7 @@ function Resolve-Mapping {
     $pool = @($Result.Rows | Where-Object { $_.State -ne 'NotHere' -and $_.User })
     $groups = $pool | Group-Object { "$($_.User.Id)|$($_.Package)" } | Where-Object Count -gt 1
     $dupRows = [System.Collections.Generic.List[int]]::new(); $mixedRows = [System.Collections.Generic.List[int]]::new()
+    $dupTokenRows = [System.Collections.Generic.List[int]]::new()
     foreach ($g in $groups) {
         $seats = @(Get-SortedByKey @($g.Group | Where-Object Access -eq 'Seat') { param($r) Get-RowSortKey $r $Result })
         if ($seats.Count -gt 1) {
@@ -94,13 +95,28 @@ function Resolve-Mapping {
                 foreach ($s in $seats | Select-Object -Skip 1) { $s.State = 'NotHere'; $s.Reason = 'Duplicate' }
             }
         }
-        if ($seats.Count -and @($g.Group | Where-Object Access -eq 'Token').Count) { foreach ($r in $g.Group) { $mixedRows.Add($r.RowNumber) } }
+        $tokens = @($g.Group | Where-Object Access -eq 'Token')
+        if ($tokens.Count -gt 1) { foreach ($t in $tokens) { $dupTokenRows.Add($t.RowNumber) } }
+        if ($seats.Count -and $tokens.Count) { foreach ($r in $g.Group) { $mixedRows.Add($r.RowNumber) } }
     }
     if ($dupRows.Count) {
         $how = if ($Result.Config.Policy.DuplicateSeatRows -eq 'ChargeOnce') { 'Only the first is charged.' } else { 'Each row is charged.' }
         Add-Issue $Result Warning DuplicateSeatRows "Same user has 2+ seat rows for one offering. $how" -Rows ([int[]]($dupRows | Sort-Object))
     }
+    if ($dupTokenRows.Count) { Add-Issue $Result Warning DuplicateTokenRows 'Same user has 2+ token rows for one offering. Each row is charged by its tokens.' -Rows ([int[]]($dupTokenRows | Sort-Object)) }
     if ($mixedRows.Count) { Add-Issue $Result Warning MixedAccess 'Same user has a seat row and a token row for one offering. Each row is charged by its own access option.' -Rows ([int[]]($mixedRows | Sort-Object)) }
+
+    # Overrides that change nothing: Manager / CostCenter / Include on rows that stay NotHere or ambiguous
+    # (they need LinkTo), or CostCenter when the profile has no cost center.
+    $noEffect = @{}
+    foreach ($row in $Result.Rows | Where-Object Override) {
+        $ov = $row.Override
+        $stuck = ($row.State -eq 'NotHere' -and $row.Reason -ne 'Excluded') -or $row.Reason -eq 'AmbiguousMatch'
+        if (($stuck -and ($ov.Manager -or $ov.CostCenter -or $ov.Include)) -or ($ov.CostCenter -and -not $cc)) { $noEffect[$ov.RowNumber] = $ov }
+    }
+    if ($noEffect.Count) {
+        Add-Issue $Result Warning OverrideNoEffect "$($noEffect.Count) override rows change nothing: Manager, CostCenter, or Include on rows that are not found, disabled, or ambiguous (use LinkTo), or CostCenter with no Ad.CostCenter in the profile." -Rows ([int[]]($noEffect.Keys | Sort-Object)) -Detail ((@($noEffect.Values) | ForEach-Object Key) -join '; ')
+    }
 
     $o = @($Result.Rows | Where-Object { $_.Override -and $_.Override.Include -and $_.User -and -not $_.User.Enabled })
     if ($o.Count) { Add-Issue $Result Info IncludedDisabled "$($o.Count) rows of disabled users are charged because of Include = Y." -Rows @($o | ForEach-Object RowNumber) }

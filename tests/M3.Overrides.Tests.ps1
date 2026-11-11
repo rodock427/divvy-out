@@ -165,7 +165,7 @@ Describe 'Override validation (spec 5.3)' {
             Ov 'ANN@test.example' -CostCenter 'A'       # 4 duplicate key (case ignored)
             Ov 'ann@test.example' -CostCenter 'B'       # 5 duplicate key
             Ov 'idle'                                   # 6 stale: no usage row, no manager
-            Ov 'bob@test.example' -CostCenter 'C'       # 7 conflict with 8 (same person)
+            Ov 'bob@test.example' -CostCenter 'C'       # 7 same person as 8 (email -> bob)
             Ov 'bob' -CostCenter 'D'                    # 8
             Ov 'orphan' -Exclude 'maybe'                # 9 bad value
             Ov 'CORP\bob' -LinkTo 'ann'                 # 10 LinkTo needs a usage-field key
@@ -180,14 +180,15 @@ Describe 'Override validation (spec 5.3)' {
         @{ N = 4; Expected = 'OverrideDuplicateKey' }
         @{ N = 5; Expected = 'OverrideDuplicateKey' }
         @{ N = 6; Expected = 'Stale' }
-        @{ N = 7; Expected = 'OverrideConflict' }
+        @{ N = 7; Expected = 'OverrideDuplicateKey' }
+        @{ N = 8; Expected = 'OverrideDuplicateKey' }
         @{ N = 9; Expected = 'OverrideBadValue' }
         @{ N = 10; Expected = 'OverrideLinkFailed' }
     ) {
         & $status $N | Should -Be $Expected
     }
 
-    It 'applies none of the conflicting overrides' {
+    It 'applies neither override for the same person' {
         ($r.Rows | Where-Object RowNumber -eq 3).Override | Should -BeNullOrEmpty
     }
 
@@ -268,5 +269,63 @@ Describe 'Duplicate and mixed rows (spec 10, DECISIONS D14)' {
         $r = Invoke-States $Dir $usage -TestProfile $p -Name 'once'
         ($r.Rows | Where-Object RowNumber -eq 2).State | Should -Be 'Charged'
         ($r.Rows | Where-Object RowNumber -eq 3).Reason | Should -Be 'Duplicate'
+    }
+}
+
+Describe 'Money-path review fixes' {
+    It 'an email override applies to every row of that person (alias and username rows too)' {
+        $usage = @(
+            Seat 'ann@test.example'                                         # 2 by email
+            New-TestUsageRow '' 'Offering One' 'Tokens' 50 'CORP\ann'       # 3 same person, username only
+            Seat 'bob@test.example'                                         # 4
+        )
+        $r = Invoke-States $Dir $usage @(Ov 'ann@test.example' -Exclude 'Y') -Name 'person'
+        ($r.Rows | Where-Object RowNumber -eq 2).Reason | Should -Be 'Excluded'
+        ($r.Rows | Where-Object RowNumber -eq 3).Reason | Should -Be 'Excluded'
+        ($r.Rows | Where-Object RowNumber -eq 4).State | Should -Be 'Charged'
+    }
+
+    It 'a link-only override and the linked person''s own override both apply' {
+        $usage = @(Seat 'nobody@test.example'; Seat 'bob@test.example')
+        $r = Invoke-States $Dir $usage @((Ov 'nobody@test.example' -LinkTo 'bob'), (Ov 'bob' -Manager 'orphan@test.example')) -Name 'combine'
+        @($r.Overrides.Items | ForEach-Object Status) | Should -Be @('OK', 'OK')
+        $linked = $r.Rows | Where-Object RowNumber -eq 2
+        $linked.User.Id | Should -Be 'id-bob'
+        $linked.ManagerId | Should -Be 'id-orphan'
+        $linked.LinkOverride.RowNumber | Should -Be 2
+        $linked.Override.RowNumber | Should -Be 3
+    }
+
+    It 'a LinkTo line that also sets a Manager clashes with the linked person''s override' {
+        $usage = @(Seat 'nobody@test.example'; Seat 'bob@test.example')
+        $ovs = @((Ov 'nobody@test.example' -LinkTo 'bob' -Manager 'ann@test.example'), (Ov 'bob' -Manager 'orphan@test.example'))
+        $r = Invoke-States $Dir $usage $ovs -Name 'clash'
+        @($r.Overrides.Items | ForEach-Object Status) | Should -Be @('OverrideConflict', 'OverrideConflict')
+        ($r.Rows | Where-Object RowNumber -eq 2).Reason | Should -Be 'NoMatch'
+    }
+
+    It 'warns about two token rows for the same user and offering' {
+        $usage = @((New-TestUsageRow 'ann@test.example' 'Offering One' 'Tokens' 10), (New-TestUsageRow 'ann@test.example' 'Offering One' 'Tokens' 20))
+        $r = Invoke-States $Dir $usage -Name 'duptok'
+        ($r.Issues | Where-Object Code -eq 'DuplicateTokenRows').Rows | Should -Be @(2, 3)
+    }
+
+    It 'warns when an override changes nothing' {
+        $usage = @(Seat 'nobody@test.example'; Seat 'two@test.example'; Seat 'ann@test.example')
+        $ovs = @(
+            Ov 'nobody@test.example' -Manager 'ann@test.example'     # NoMatch: needs LinkTo
+            Ov 'two@test.example' -Manager 'ann@test.example'        # ambiguous: still NO OWNER
+            Ov 'ann@test.example' -CostCenter 'X'                    # no Ad.CostCenter in this profile
+        )
+        $r = Invoke-States $Dir $usage $ovs -Name 'noeffect'
+        ($r.Issues | Where-Object Code -eq 'OverrideNoEffect').Rows | Should -Be @(2, 3, 4)
+        $r.DraftReasons -join ' ' | Should -Not -Match 'OverrideNoEffect'
+    }
+
+    It 'finds an override manager past an old disabled account with the same mail (PreferEnabled)' {
+        $ad = @($Dir) + @(New-TestAdUser 'old-ann' -Mail 'ann@test.example' -Disabled)
+        $r = Invoke-States $ad @(Seat 'orphan@test.example') @(Ov 'orphan@test.example' -Manager 'ann@test.example') -Name 'mgrlive'
+        $r.Rows[0].ManagerId | Should -Be 'id-ann'
+        $r.Issues | Where-Object Code -eq 'OverrideManagerText' | Should -BeNullOrEmpty
     }
 }

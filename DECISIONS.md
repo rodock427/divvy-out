@@ -39,7 +39,7 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 
 ## Overrides and states
 
-- **D32. One override per usage row.** Usage-key overrides apply to the rows they find. Directory-key overrides apply to every row of that user (after any `LinkTo`). If two overrides reach the same row, neither is applied anywhere (`OverrideConflict`, a bad override).
+- **D32. One override per usage row** (changed by D79). Usage-key overrides apply to the rows they find (or to the whole person, D78). Directory-key overrides apply to every row of that user (after any `LinkTo`). If two overrides reach the same row, neither is applied anywhere (`OverrideConflict`, a bad override).
 - **D33. `LinkTo`** needs a Key found by a usage-field key rule (it re-points usage rows). It finds the user with the directory key rules only. A linked row shows match status `Linked`. Linking to a disabled user makes the row `Disabled` unless `Include = Y`.
 - **D34. Flags.** `Exclude` and `Include` accept Y/Yes/True/1 (any case) or blank/N/No/False/0. Anything else is a bad override.
 - **D35. Precedence.** `Exclude` beats everything. `Ambiguous` and `NoMatch` rows are not fixed by `Manager` alone (they need `LinkTo`). An override manager beats the directory manager, even if that manager is disabled (warned).
@@ -106,3 +106,10 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D75. Excel files are built in memory and written as bytes** (`GetAsByteArray`), with no `Dispose()`. EPPlus 4.5 `Dispose()` forces a full garbage collection; with a work-size run in memory that cost ~0.2 s per file. Ranges are styled once, not cell by cell. CSVs are written with plain loops (no script block per cell).
 - **D76. Paths.** Every path handed to .NET goes through PowerShell's path resolution (`Get-FullPath`). .NET resolves relative paths against the process folder, which does not follow `cd`, so relative `-Usage`, `-Ad`, `-OutputRoot` could read or write the wrong folder.
 - **D77. Measured at work scale** (fake: 30,061 directory users, 1,000 managers, 20,103 usage rows, Linux laptop): full run 45 s, peak memory about 1.25 GB. Before the fixes: about 230 s.
+
+## Money-path review (after M9)
+
+- **D78. An email override means the person** (owner OK, 2026-11-10). If every usage row a usage-field Key finds matched the same directory user, and the line has no `LinkTo`, the override applies to all of that user's rows, including rows under an alias or a username. Rows that matched nobody, or several people, stay row by row.
+- **D79. Link, then the person's override.** A `LinkTo` line that only links (no Manager, CostCenter, Exclude, or Include) can be followed on the same row by the linked person's own override. A linking line that also sets one of those fields still clashes with the person's override. The audit shows both (`OverrideRow`, `LinkOverrideRow`).
+- **D80. More warnings, no DRAFT:** two token rows for the same user and offering (`DuplicateTokenRows`, spec 10), and overrides that change nothing (`OverrideNoEffect`: Manager, CostCenter, or Include on rows that stay not found, disabled, or ambiguous; CostCenter with no `Ad.CostCenter`).
+- **D81. `ManagerLookup` uses `Match.PreferEnabled`**: if the manager's mail finds a live and an old disabled account, the live one is used.

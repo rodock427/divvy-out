@@ -240,7 +240,7 @@ function Write-XlExplanation {
         foreach ($x in $ov) {
             $o = $x.Override
             $what = @(
-                if ($o.LinkUser) { 'matched to this person by hand' }
+                if ($x.LinkOverride) { 'matched to this person by hand' }
                 if ($o.Manager) { "manager set to $($x.ManagerName)" }
                 if ($o.CostCenter) { "cost center set to $($o.CostCenter)" }
                 if ($o.Include) { 'charged although disabled in the directory' }

@@ -19,7 +19,7 @@ function Write-Audit {
         'Tokens', 'PoolTokens', 'TokenRate', 'TokenCharge', 'RowTotal',
         'ManagerDirectoryId', 'ManagerDirectory', 'ManagerFinalId', 'ManagerFinal', 'ManagerSource',
         'CostCenterRaw', 'CostCenterFinal',
-        'Override', 'OverrideRow', 'OverrideReason', 'OverrideBy', 'OverrideDate',
+        'Override', 'OverrideRow', 'OverrideReason', 'OverrideBy', 'OverrideDate', 'LinkOverrideRow',
         'RunId', 'RunTimestamp', 'ToolVersion'
     ) + @($headers | ForEach-Object { "usage_$_" }) + @($adAttrs | ForEach-Object { "ad_$_" })
 
@@ -50,6 +50,7 @@ function Write-Audit {
         $line.OverrideReason = if ($o) { $o.Reason } else { '' }
         $line.OverrideBy = if ($o) { $o.By } else { '' }
         $line.OverrideDate = if ($o) { $o.Date } else { '' }
+        $line.LinkOverrideRow = if ($row.LinkOverride) { $row.LinkOverride.RowNumber } else { '' }
         $line.RunId = $Result.RunId; $line.RunTimestamp = $stamp; $line.ToolVersion = $Result.ToolVersion
         foreach ($h in $headers) { $line["usage_$h"] = $row.Source[$h] }
         foreach ($a in $adAttrs) { $line["ad_$a"] = if ($row.User) { [string]$row.User.Record.$a } else { '' } }
