@@ -5,7 +5,8 @@
 # Bad overrides (NoHit, MultipleHits, DuplicateKey, Conflict, LinkFailed, BadValue) are skipped and,
 # with Policy.BadOverride = 'Draft', force the run to DRAFT. Stale overrides only warn.
 
-$script:OverrideColumns = 'Key', 'Manager', 'CostCenter', 'Exclude', 'Include', 'LinkTo', 'Reason', 'By', 'Date'
+# 'Problem' is written by overrides-template.csv as a hint; it is ignored on read.
+$script:OverrideColumns = 'Key', 'Manager', 'CostCenter', 'Exclude', 'Include', 'LinkTo', 'Reason', 'By', 'Date', 'Problem'
 
 function Import-OverrideFile {
     param([string]$Path, $Result)

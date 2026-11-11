@@ -11,7 +11,9 @@ function Add-Issue {
         [int[]]$Rows = @(),
         [string]$Detail = ''
     )
-    $Result.Issues.Add([pscustomobject]@{ Level = $Level; Code = $Code; Message = $Message; Rows = $Rows; Detail = $Detail })
+    # Which file the row numbers point into.
+    $source = if ($Code -like 'Override*') { 'overrides' } elseif ($Code -in 'BlankId', 'DuplicateId') { 'directory' } else { 'usage' }
+    $Result.Issues.Add([pscustomobject]@{ Level = $Level; Code = $Code; Message = $Message; Rows = $Rows; Detail = $Detail; Source = $source })
 }
 
 function Get-IssueCount { param($Result, [string]$Level) @($Result.Issues | Where-Object Level -eq $Level).Count }
@@ -96,3 +98,25 @@ function Get-SortedByKey {
     [Array]::Sort([Array]$keys, [Array]$arr, [System.Collections.IComparer][StringComparer]::Ordinal)
     $arr
 }
+
+function Format-Money { param([decimal]$Value) $Value.ToString('0.00', [cultureinfo]::InvariantCulture) }
+
+# Writes a CSV: UTF-8 with BOM (NFR-7), every cell quoted, header even when there are no rows.
+# Text that starts with = + - @ (or tab/CR) gets a leading ' so Excel shows it as text (NFR-8).
+# Rows are dictionaries keyed by column name. Decimals are written in invariant culture.
+function Export-DivvyCsv {
+    param([Parameter(Mandatory)] [string]$Path, [Parameter(Mandatory)] [string[]]$Columns, [object[]]$Rows = @())
+    $cell = {
+        param($v)
+        $s = if ($null -eq $v) { '' } elseif ($v -is [decimal]) { $v.ToString([cultureinfo]::InvariantCulture) } else { [string]$v }
+        if ($s -match '^[=+\-@\t\r]') { $s = "'" + $s }
+        '"' + $s.Replace('"', '""') + '"'
+    }
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add((@($Columns | ForEach-Object { & $cell $_ }) -join ','))
+    foreach ($r in $Rows) { $lines.Add((@($Columns | ForEach-Object { & $cell $r[$_] }) -join ',')) }
+    [IO.File]::WriteAllLines($Path, $lines, [Text.UTF8Encoding]::new($true))
+}
+
+# Usage fields that identify a person (the match rules' usage fields, in rule order).
+function Get-IdentifierField { param($Result) @($Result.Config.Match.Rules | ForEach-Object UsageField | Select-Object -Unique) }

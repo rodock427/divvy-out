@@ -72,3 +72,11 @@ function Invoke-Allocation {
         $Result.DraftReasons.Add("$($bad.Count) pool(s) not recovered: $names")
     }
 }
+
+# Run status (spec 7.4): FINAL only with no NeedsOwner rows, nothing unrecovered, and no forced-draft reason.
+function Set-RunStatus {
+    param([Parameter(Mandatory)] $Result)
+    $needs = @($Result.Rows | Where-Object State -eq 'NeedsOwner').Count
+    if ($needs) { $Result.DraftReasons.Insert(0, "$needs rows need an owner") }
+    $Result.Status = if ($Result.DraftReasons.Count) { 'DRAFT' } else { 'FINAL' }
+}

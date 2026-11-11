@@ -55,3 +55,13 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D42. Unrecoverable pools are found by the rule**: a seat offering with a price and no pool seat rows; the token pool with a price and zero pool tokens (including token rows that all used 0 tokens). The stop (`-AllowUnrecovered`) and the invariant check are in the core, in M4, because the M4 tests cover them.
 - **D43. Pool info on `NotHere` rows** (offering price, pool seat rows, rate) is left blank; their charges are 0.
 - **D44. A price of 0** is a valid pool. Its rows are charged 0.00 and it is never unrecoverable.
+
+## Reports (M5)
+
+- **D45. CSV status.** A CSV has no title, so every `summary-by-manager.csv` line has a `Status` column (`FINAL`/`DRAFT`). The console and `diagnostics.txt` list the DRAFT reasons.
+- **D46. Unrecovered money in CSVs** appears as an `UNRECOVERED (nobody to charge)` line at the end of the summary and as an `Unrecovered` line in `exceptions.csv`. The Excel and HTML reports (M6, M8) will show it at the top.
+- **D47. Summary lines**: one per charge owner (by directory ID; a free-text override manager is its own line with no ID), then `NO OWNER` (all `NeedsOwner` rows). `People` counts distinct directory users. Sorted by manager name, then ID, ordinal (non-ASCII names sort after Z; sort in Excel if needed). No total line (sum the column).
+- **D48. `overrides-template.csv`** has one line per distinct key (normalized) and an extra `Problem` column (reason and usage rows). DivvyOut ignores `Problem` when it reads overrides, so the template can be edited and used as is. Rows with a blank key are left out (counted in an info line).
+- **D49. `exceptions.csv`** has one line per row per issue (all levels), with a `File` column saying which file the row number points into (`usage`, `overrides`, `directory`).
+- **D50. CSV formula escaping** also covers text starting with a tab or carriage return (OWASP list), besides `= + - @`.
+- **D51. Outputs on a failed run**: only `diagnostics.txt` (FR-12). Reports are written only after the money reconciles.

@@ -28,9 +28,14 @@ function Invoke-DivvyOut {
         Resolve-Override -Result $result
         Assert-NoError $result 'Override file check failed'
         Resolve-Mapping -Result $result
-        Invoke-Allocation -Result $result
         foreach ($line in $result.MatchReport.Lines) { Write-Host "  $line" }
-        $result.Status = 'VALIDATED'
+        Invoke-Allocation -Result $result
+        Set-RunStatus -Result $result
+        # Writers: each takes the result object only (spec 9).
+        Write-Summary -Result $result -Path (Join-Path $runDir 'summary-by-manager.csv')
+        Write-NotFound -Result $result -Path (Join-Path $runDir 'not-found.csv')
+        Write-OverridesTemplate -Result $result -Path (Join-Path $runDir 'overrides-template.csv')
+        Write-Exceptions -Result $result -Path (Join-Path $runDir 'exceptions.csv')
     }
     catch {
         $result.Status = 'FAILED'
@@ -40,6 +45,10 @@ function Invoke-DivvyOut {
     finally {
         Write-Diagnostics -Result $result -Path (Join-Path $runDir 'diagnostics.txt')
     }
-    Write-Host "DivvyOut run $($result.RunId): $($result.Status). Output: $($result.OutputDir)"
+    $rec = $result.Reconciliation
+    Write-Host "DivvyOut run $($result.RunId): $($result.Status)"
+    foreach ($reason in $result.DraftReasons) { Write-Host "  DRAFT because: $reason" }
+    Write-Host ('  Quote {0}  Allocated {1}  Unrecovered {2}' -f (Format-Money $rec.QuoteTotal), (Format-Money $rec.Allocated), (Format-Money $rec.Unrecovered))
+    Write-Host "  Output: $($result.OutputDir)"
     if ($PassThru) { $result }
 }

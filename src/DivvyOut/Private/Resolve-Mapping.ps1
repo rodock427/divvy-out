@@ -104,6 +104,8 @@ function Resolve-Mapping {
 
     $o = @($Result.Rows | Where-Object { $_.Override -and $_.Override.Include -and $_.User -and -not $_.User.Enabled })
     if ($o.Count) { Add-Issue $Result Info IncludedDisabled "$($o.Count) rows of disabled users are charged because of Include = Y." -Rows @($o | ForEach-Object RowNumber) }
+    $ex = @($Result.Rows | Where-Object Reason -eq 'Excluded')
+    if ($ex.Count) { Add-Issue $Result Info Excluded "$($ex.Count) rows excluded by override. Not charged." -Rows @($ex | ForEach-Object RowNumber) }
     $needs = @($Result.Rows | Where-Object State -eq 'NeedsOwner')
     foreach ($g in $needs | Group-Object Reason | Sort-Object Name) {
         Add-Issue $Result Warning "NeedsOwner$($g.Name)" "$($g.Count) rows need an owner ($($g.Name)). Charged, but on the NO OWNER statement. Blocks FINAL." -Rows @($g.Group | ForEach-Object RowNumber)
