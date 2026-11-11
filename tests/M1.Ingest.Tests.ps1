@@ -50,13 +50,13 @@ Describe 'Profile and input validation (spec 5.5)' {
     It 'requires every canonical field the vendor rule needs' {
         $p = Get-TestProfile; $p.Usage.Columns.Remove('Tokens')
         $r = Test-Input -TestProfile $p
-        ($r.Issues | Where-Object Code -eq 'ProfileInvalid').Message | Should -Contain "Canonical field 'Tokens' is used but not mapped in Usage.Columns."
+        ($r.Issues | Where-Object Code -eq 'ProfileInvalid').Message | Should -Contain "Canonical field 'Tokens' is used but not mapped in Usage.Columns (or set in Usage.FixedValues)."
     }
 
     It 'requires every UsageField used by a match rule to be mapped' {
         $p = Get-TestProfile; $p.Match.Rules += @{ UsageField = 'EmployeeNo'; AdAttribute = 'objectGUID'; Normalize = 'Trim' }
         $r = Test-Input -TestProfile $p
-        ($r.Issues | Where-Object Code -eq 'ProfileInvalid').Message | Should -Contain "Canonical field 'EmployeeNo' is used but not mapped in Usage.Columns."
+        ($r.Issues | Where-Object Code -eq 'ProfileInvalid').Message | Should -Contain "Canonical field 'EmployeeNo' is used but not mapped in Usage.Columns (or set in Usage.FixedValues)."
     }
 
     It 'rejects an unknown Normalize step and an unknown vendor' {

@@ -62,6 +62,18 @@ function Import-DivvyProfile {
             if ([string]::IsNullOrWhiteSpace($h)) { & $err "Profile key Usage.Columns.$k is empty." } else { $columns[$k] = $h.Trim() }
         }
     }
+    # Fields the report does not have, with the same text on every row (for example a user-only list: one product).
+    $fixed = [ordered]@{}
+    $srcFixed = Get-Setting $u 'FixedValues' @{}
+    if ($srcFixed -isnot [System.Collections.IDictionary]) { & $err 'Profile key Usage.FixedValues must be a @{ } table.' }
+    else {
+        foreach ($k in Get-OrdinalSorted @($srcFixed.Keys)) {
+            $t = [string]$srcFixed[$k]
+            if ([string]::IsNullOrWhiteSpace($t)) { & $err "Profile key Usage.FixedValues.$k is empty." }
+            elseif ($columns.Contains($k)) { & $err "Canonical field '$k' is in both Usage.Columns and Usage.FixedValues. Use one." }
+            else { $fixed[$k] = $t.Trim() }
+        }
+    }
     $headerRow = Get-Setting $u 'HeaderRow' 1
     if ($headerRow -isnot [int] -or $headerRow -lt 1) { & $err 'Profile key Usage.HeaderRow must be a whole number, 1 or more.'; $headerRow = 1 }
 
@@ -168,7 +180,7 @@ function Import-DivvyProfile {
     # Every canonical field the rule, the match rules, and the key rules read must be mapped.
     $needed = @(if ($rule) { $rule.RequiredFields }) + @($matchRules | ForEach-Object UsageField) + @($keyRules | ForEach-Object UsageField)
     foreach ($f in $needed | Where-Object { $_ } | Sort-Object -Unique) {
-        if (-not $columns.Contains($f)) { & $err "Canonical field '$f' is used but not mapped in Usage.Columns." }
+        if (-not $columns.Contains($f) -and -not $fixed.Contains($f)) { & $err "Canonical field '$f' is used but not mapped in Usage.Columns (or set in Usage.FixedValues)." }
     }
 
     $charge = Get-Setting $p 'Charge' @{}
@@ -182,7 +194,7 @@ function Import-DivvyProfile {
         Rule      = $rule
         Usage     = [ordered]@{
             HeaderRow = $headerRow; Encoding = [string](Get-Setting $u 'Encoding' 'utf8'); Sheet = [string](Get-Setting $u 'Sheet' '')
-            Columns = $columns; AccessOptionValues = $access; OfferingAliases = $aliases
+            Columns = $columns; FixedValues = $fixed; AccessOptionValues = $access; OfferingAliases = $aliases
         }
         Match     = [ordered]@{
             PreferEnabled   = [bool]$preferEnabled

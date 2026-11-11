@@ -30,4 +30,5 @@ Planted cases:
 | Every user has a `physicalDeliveryOfficeName` (site, by department) | `Ad.ManagerInfo` shows each manager's site in the summary, statements, roll-ups, dashboard |
 | Quote has `SeatCounts` and `TokensPurchased` | dashboard: click an offering for the seat vs token comparison and ⚠ flags |
 | `overrides.csv`: exclude, link, fix ambiguous, manager, cost center, include (on leave), tree fix, typo | M3 tests |
+| `userlist/userlist_usage_2027.csv`: one email column, 40 live people, one listed twice (upper case), one disabled, one not in the directory | `UserList` profile: 12000.00 / 40 = 300.00 each; the extra row is `Duplicate`, the others `Disabled` and `NoMatch` |
 | `overrides.csv`: `SeatFor = Offering Two` for the heaviest token user of it | that person is charged one seat of Offering Two; their tokens leave the token pool (`MovedToSeat`) |

@@ -9,6 +9,7 @@ Contents (see samples/README.md for the full list of planted cases):
                     managers missing from the snapshot, non-English names, cost centers with commas
   autodesk_usage_2027.csv/.xlsx   ~400 usage rows in the 24-column fake layout
   overrides.csv     sample overrides (exclude, link, manager, cost center, include, tree fix, typo, SeatFor)
+  userlist/userlist_usage_2027.csv   user-only list (one email column) for the UserList profile
 #>
 param([string]$OutDir = $PSScriptRoot, [int]$Seed = 2027)
 $ErrorActionPreference = 'Stop'
@@ -217,6 +218,15 @@ $overrides = @(
     [pscustomobject][ordered]@{ Key = 'nobody.here@corp.example'; Manager = ''; CostCenter = ''; Exclude = 'Y'; Include = ''; LinkTo = ''; SeatFor = ''; Reason = 'Typo on purpose: finds nobody'; By = 'owner'; Date = '2026-11-01' }
 )
 
+# --- User-only list (config/profiles/userlist_profile_2027.psd1): one column, no random draw ---
+# 40 live staff, one of them twice (upper case: still one share), one disabled, one not in the directory.
+$userList = @(
+    $live | Select-Object -Skip 180 -First 40 | ForEach-Object { [pscustomobject]@{ 'User Email' = $_.mail } }
+    [pscustomobject]@{ 'User Email' = ' ' + $live[180].mail.ToUpperInvariant() }
+    [pscustomobject]@{ 'User Email' = $departedStaff[1].mail }
+    [pscustomobject]@{ 'User Email' = 'former.user@corp.example' }
+)
+
 # --- Write ---
 $adPath = Join-Path $OutDir 'ad-snapshot.csv'
 $users | Sort-Object objectGUID | Export-Csv $adPath -Encoding utf8BOM
@@ -225,4 +235,6 @@ $xlsx = Join-Path $OutDir 'autodesk_usage_2027.xlsx'
 Remove-Item $xlsx -ErrorAction SilentlyContinue
 $rows | Export-Excel $xlsx -WorksheetName 'Usage' 3>$null
 $overrides | Export-Csv (Join-Path $OutDir 'overrides.csv') -Encoding utf8BOM
+$null = New-Item -ItemType Directory -Force (Join-Path $OutDir 'userlist')
+$userList | Export-Csv (Join-Path $OutDir 'userlist/userlist_usage_2027.csv') -Encoding utf8BOM
 Write-Host "Fake data: $($users.Count) directory users, $($rows.Count) usage rows, $($overrides.Count) overrides -> $OutDir"

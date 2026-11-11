@@ -60,6 +60,7 @@ function Import-UsageFile {
         foreach ($h in $file.Headers) { $source[$h] = [string]$obj.$h }
         $fields = [ordered]@{}
         foreach ($field in $map.Keys) { $fields[$field] = $source[$map[$field]] }
+        foreach ($field in $u.FixedValues.Keys) { $fields[$field] = $u.FixedValues[$field] }
         # Skip fully blank lines (Excel often leaves some at the end).
         if (-not (@($source.Values) -join '').Trim()) { continue }
 

@@ -27,7 +27,7 @@ It prints the match report and the status, and writes everything to `output/<run
 
 Keep real files in `inputs/`. Git ignores `inputs/` and `output/`. Never put real data anywhere else in this folder. File names: `<vendor>_<profile|quote|usage>_<year>`, for example `autodesk_quote_2028.psd1`.
 
-1. **Profile.** Copy `config/profiles/autodesk_profile_2027.psd1` and set your real names: the usage report headers (`Usage.Columns`), the access option text, the match rules, and the directory attribute names (`Ad`). Nothing about your report or directory is in the code; it is all in the profile. Optional: `Ad.ManagerInfo` adds directory attributes of each manager (for example a region) to the summary, statements, roll-ups, and dashboard.
+1. **Profile.** Copy `config/profiles/autodesk_profile_2027.psd1` and set your real names: the usage report headers (`Usage.Columns`), the access option text, the match rules, and the directory attribute names (`Ad`). Nothing about your report or directory is in the code; it is all in the profile. For a vendor that gives only a list of users, start from `config/profiles/userlist_profile_2027.psd1` instead: see "Vendors that give only a list of users". Optional: `Ad.ManagerInfo` adds directory attributes of each manager (for example a region) to the summary, statements, roll-ups, and dashboard.
 2. **Quote.** Copy `config/quotes/autodesk_quote_2027.psd1` to `inputs/` and enter the real prices. Write amounts as `12000`, `'12000.50'`, or `12000.50d` (a bare `12000.50` is rejected). Optional: `SeatCounts` and `TokensPurchased` (what was bought) turn on the seat vs token comparison on the dashboard. They never change charges.
 3. **Directory snapshot.**
    ```powershell
@@ -116,6 +116,23 @@ Some people use more tokens than a seat would cost. To move them to seats in the
 
 Check `exceptions.csv` for `SeatForNoEffect` (the person has no token row on that offering, or already has a seat on it). If you skip step 3, the new offering has nobody to charge and the run stops (`UnusedQuoteOffering`). Charges come only from last year's usage: someone with no usage row for that offering cannot be charged a seat of it.
 
+## Vendors that give only a list of users
+
+Some vendors give only the people who used a product: no product, access type, or tokens. Use the `UserList` profile and quote:
+
+1. Copy `config/profiles/userlist_profile_2027.psd1` and `config/quotes/userlist_quote_2027.psd1` to `inputs/`, renamed to `<vendor>_profile_<year>.psd1` and `<vendor>_quote_<year>.psd1`.
+2. In the profile, set `Usage.Columns.Email` to the list's header. If the list has a logon name instead, map `UserKey` and change the match rules to use it. Set `Usage.FixedValues.Package` to the product name.
+3. In the quote, put that same product name in `SeatPrices` with the total price.
+4. Run as usual with the list as `-Usage`.
+
+The price is split equally per person on the list. A person listed twice pays one share. People who are not here (disabled, not found, excluded) are not charged, and their share is spread over everyone else. One list = one product = one run.
+
+Try it on the fake sample:
+```powershell
+./scripts/Invoke-DivvyOut.ps1 -Profile config/profiles/userlist_profile_2027.psd1 -Quote config/quotes/userlist_quote_2027.psd1 `
+    -Usage samples/userlist/userlist_usage_2027.csv -Ad samples/ad-snapshot.csv
+```
+
 ## When something goes wrong
 
 Send `diagnostics.txt` from the run folder. Never send the other files. It is written on every run, failed runs included, and shows header and attribute names, counts, row numbers, and masked value shapes only.
@@ -130,9 +147,9 @@ All test data is fake. Rebuild the sample data with `pwsh -NoProfile -File sampl
 
 ## Add a vendor
 
-1. Write `src/DivvyOut/Rules/<Vendor>.ps1`: register the rule (name, canonical fields it needs, access kinds, allocate function). The function gets the pool rows and the quote and sets the row charges. Use `Rules/ExampleVendor.ps1` as the template.
+1. Write `src/DivvyOut/Rules/<Vendor>.ps1`: register the rule (name, canonical fields it needs, access kinds, allocate function). The function gets the pool rows and the quote and sets the row charges. Use `Rules/UserList.ps1` as the template.
 2. Write a profile with `Vendor = '<Vendor>'` and the report's headers.
-3. No core change is needed for vendors that sell seats and/or a token pool (DECISIONS D73, D74).
+3. No core change is needed for vendors that sell seats and/or a token pool (DECISIONS D73, D74). A report that lacks a column the rule needs can set it in the profile with `Usage.FixedValues` (D86).
 
 ## Layout
 

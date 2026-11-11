@@ -42,6 +42,7 @@ function Write-Diagnostics {
                 $found = if (@($Result.Usage.Headers | Where-Object { $_.Trim() -eq $h }).Count) { 'found' } elseif (@($Result.Usage.Headers).Count) { 'MISSING' } else { '?' }
                 & $w ('    {0,-14} <- {1,-30} {2}' -f $f, "'$h'", $found)
             }
+            foreach ($f in $c.Usage.FixedValues.Keys) { & $w ('    {0,-14} =  {1}' -f $f, "'$($c.Usage.FixedValues[$f])' (fixed, every row)") }
             & $w "  Access options: $(($c.Usage.AccessOptionValues.Keys | ForEach-Object { "$_='$($c.Usage.AccessOptionValues[$_])'" }) -join ', ')"
             & $w "  Offering aliases: $($c.Usage.OfferingAliases.Count)"
             & $w "  Match: PreferEnabled=$($c.Match.PreferEnabled) DisabledSoloHit=$($c.Match.DisabledSoloHit)"
