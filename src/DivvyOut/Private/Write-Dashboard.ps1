@@ -102,5 +102,5 @@ function Write-Dashboard {
     $escapedLt = [string][char]0x5C + 'u003c'   # JSON escape for '<'
     $json = ($data | ConvertTo-Json -Depth 8 -Compress).Replace([string][char]0x3C, $escapedLt)
     $template = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'Assets/dashboard.html') -Raw -Encoding utf8
-    [IO.File]::WriteAllText($Path, $template.Replace('__DIVVY_DATA__', $json), [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Get-FullPath $Path), $template.Replace('__DIVVY_DATA__', $json), [Text.UTF8Encoding]::new($false))
 }

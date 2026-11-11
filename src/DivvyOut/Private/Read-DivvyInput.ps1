@@ -41,7 +41,7 @@ function Read-DivvyInput {
             continue
         }
         if ($src -is [System.Collections.IDictionary]) { $Result.Inputs[$role] = [ordered]@{ Path = $null; Name = '(in memory)'; Extension = '' }; continue }
-        $full = [IO.Path]::GetFullPath([string]$src)
+        $full = Get-FullPath ([string]$src)
         $Result.Inputs[$role] = [ordered]@{ Path = $full; Name = [IO.Path]::GetFileName($full); Extension = [IO.Path]::GetExtension($full).ToLowerInvariant() }
         if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { Add-Issue $Result Error MissingInput "The $role file was not found." }
     }

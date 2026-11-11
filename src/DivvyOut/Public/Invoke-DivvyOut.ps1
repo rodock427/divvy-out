@@ -27,6 +27,7 @@ function Invoke-DivvyOut {
     $runDir = Join-Path $OutputRoot $result.RunId
     New-Item -ItemType Directory -Force -Path $runDir | Out-Null
     $result.OutputDir = (Resolve-Path -LiteralPath $runDir).Path
+    $runDir = $result.OutputDir
     try {
         Read-DivvyInput -Result $result -ProfileSource $Profile -QuoteSource $Quote -UsagePath $Usage -AdPath $Ad -OverridesPath $Overrides
         Assert-NoError $result 'Input validation failed'

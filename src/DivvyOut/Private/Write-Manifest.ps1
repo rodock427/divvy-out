@@ -60,5 +60,5 @@ function Write-Manifest {
         Issues         = $issues
     }
     foreach ($g in $Result.Rows | Group-Object State, Reason | Sort-Object Name) { $manifest.RowStates[$g.Name] = $g.Count }
-    [IO.File]::WriteAllText($Path, ($manifest | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Get-FullPath $Path), ($manifest | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
 }

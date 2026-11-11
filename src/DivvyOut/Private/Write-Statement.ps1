@@ -10,7 +10,12 @@ $script:Palette = @{
 }
 $script:MoneyFormat = '$#,##0.00'
 
-function Get-XlColor { param([string]$Name) [System.Drawing.Color]::FromArgb([Convert]::ToInt32('FF' + $script:Palette[$Name], 16)) }
+$script:XlColors = @{}
+function Get-XlColor {
+    param([string]$Name)
+    if (-not $script:XlColors.ContainsKey($Name)) { $script:XlColors[$Name] = [System.Drawing.Color]::FromArgb([Convert]::ToInt32('FF' + $script:Palette[$Name], 16)) }
+    $script:XlColors[$Name]
+}
 
 function Get-ShortId {
     param([string]$Key)
@@ -53,6 +58,14 @@ function ConvertTo-SheetName {
     }
     [void]$Used.Add($s)
     $s
+}
+
+# Workbooks are built in memory and written as bytes. EPPlus 4.5 Dispose() forces a full garbage collection,
+# which costs ~0.2 s per file once the run's data is in memory (1,000 statements = minutes). A memory-only
+# package holds no file handle, so it needs no Dispose.
+function Save-XlPackage {
+    param($Package, [string]$Path)
+    [IO.File]::WriteAllBytes((Get-FullPath $Path), $Package.GetAsByteArray())
 }
 
 function Set-XlText {
@@ -143,33 +156,42 @@ function Write-XlStatementTable {
 
     $sorted = @(Get-SortedByKey $Rows { param($x) "{0}`0{1}`0{2:D9}" -f (Get-PersonLabel $x $Result), $x.Package, $x.RowNumber })
     $total = [decimal]0
+    $off = if ($hasTeam) { 1 } else { 0 }
+    $n = $cols.Count
+    $first = $Row + 1
+    $last = $Row + $sorted.Count
+    if ($sorted.Count) {
+        # Style whole ranges once (per-cell styling is slow with 1,000 statements).
+        $data = $Ws.Cells[$first, 1, $last, $n]
+        $data.Style.Font.Color.SetColor((Get-XlColor 'Text'))
+        $data.Style.Border.Bottom.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Hair
+        $data.Style.Border.Bottom.Color.SetColor((Get-XlColor 'Hairline'))
+        $tokRange = $Ws.Cells[$first, (4 + $off), $last, (4 + $off)]
+        $tokRange.Style.Numberformat.Format = '#,##0'
+        $tokRange.Style.HorizontalAlignment = [OfficeOpenXml.Style.ExcelHorizontalAlignment]::Right
+        $moneyRange = $Ws.Cells[$first, (5 + $off), $last, (7 + $off)]
+        $moneyRange.Style.Numberformat.Format = $script:MoneyFormat
+        $moneyRange.Style.HorizontalAlignment = [OfficeOpenXml.Style.ExcelHorizontalAlignment]::Right
+    }
     foreach ($x in $sorted) {
         $Row++
-        $v = [System.Collections.Generic.List[object]]::new()
-        $v.Add((Get-PersonLabel $x $Result))
-        if ($hasTeam) { $v.Add([string]$x.Fields['Team']) }
-        $v.Add($x.PackageRaw)
-        $v.Add($(if ($x.Access -eq 'Token') { 'Tokens' } else { 'Seat' }))
-        foreach ($i in 1..4) { $v.Add($null) }
-        if ($hasCc) { $v.Add([string]$x.CostCenter) }
-        if ($WithReason) { $v.Add([string]$x.Reason) }
-        $off = if ($hasTeam) { 1 } else { 0 }
-        for ($c = 1; $c -le $cols.Count; $c++) {
-            $cell = $Ws.Cells[$Row, $c]
-            $cell.Style.Border.Bottom.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Hair
-            $cell.Style.Border.Bottom.Color.SetColor((Get-XlColor 'Hairline'))
-            if ($null -ne $v[$c - 1]) { Set-XlText $cell $v[$c - 1] }
-        }
-        $tok = $Ws.Cells[$Row, (4 + $off)]
+        $c = 1
+        $Ws.Cells[$Row, $c].Value = Get-PersonLabel $x $Result; $c++
+        if ($hasTeam) { $Ws.Cells[$Row, $c].Value = [string]$x.Fields['Team']; $c++ }
+        $Ws.Cells[$Row, $c].Value = $x.PackageRaw; $c++
+        $Ws.Cells[$Row, $c].Value = $(if ($x.Access -eq 'Token') { 'Tokens' } else { 'Seat' }); $c++
+        $tok = $Ws.Cells[$Row, $c]
         if ($x.Access -eq 'Token') {
             $tok.Value = $x.Tokens
-            $tok.Style.Numberformat.Format = if ($x.Tokens -eq [decimal]::Truncate($x.Tokens)) { '#,##0' } else { '#,##0.00' }
+            if ($x.Tokens -ne [decimal]::Truncate($x.Tokens)) { $tok.Style.Numberformat.Format = '#,##0.00' }
         }
         else { $tok.Value = [string][char]0x2013 }
-        $tok.Style.HorizontalAlignment = [OfficeOpenXml.Style.ExcelHorizontalAlignment]::Right
-        Set-XlMoney $Ws.Cells[$Row, (5 + $off)] $x.SeatCharge
-        Set-XlMoney $Ws.Cells[$Row, (6 + $off)] $x.TokenCharge
-        Set-XlMoney $Ws.Cells[$Row, (7 + $off)] $x.RowTotal
+        $Ws.Cells[$Row, ($c + 1)].Value = $x.SeatCharge
+        $Ws.Cells[$Row, ($c + 2)].Value = $x.TokenCharge
+        $Ws.Cells[$Row, ($c + 3)].Value = $x.RowTotal
+        $c += 4
+        if ($hasCc) { $Ws.Cells[$Row, $c].Value = [string]$x.CostCenter; $c++ }
+        if ($WithReason) { $Ws.Cells[$Row, $c].Value = [string]$x.Reason }
         $total += $x.RowTotal
     }
     $Row++
@@ -256,18 +278,16 @@ function Get-CountLine {
 
 function Save-StatementFile {
     param([string]$Path, $Result, [string]$Title, [object[]]$Rows, [switch]$NoOwner)
-    $pkg = Open-ExcelPackage -Path $Path -Create
-    try {
-        $ws = Add-Worksheet -ExcelPackage $pkg -WorksheetName 'Statement'
-        $total = [decimal]0; foreach ($r in $Rows) { $total += $r.RowTotal }
-        $width = 7 + [int]$Result.Config.Usage.Columns.Contains('Team') + [int][bool]$Result.Config.Ad.CostCenter + [int][bool]$NoOwner
-        $next = Write-XlHeader $ws $Result $Title (Get-Subtitle $Result $(if ($NoOwner) { 'for the owner only' })) $total (Get-CountLine $Rows) $width
-        if (-not $Rows.Count -and $NoOwner) { Set-XlText $ws.Cells[$next, 1] 'Every charged row has an owner.' -Color 'Text2'; $next += 2 }
-        [void](Write-XlStatementTable $ws $next $Rows $Result -WithReason:$NoOwner -Freeze)
-        Set-XlPage $ws
-        Write-XlExplanation (Add-Worksheet -ExcelPackage $pkg -WorksheetName 'How this was calculated') $Rows $Result
-    }
-    finally { Close-ExcelPackage $pkg }
+    $pkg = [OfficeOpenXml.ExcelPackage]::new()
+    $ws = Add-Worksheet -ExcelPackage $pkg -WorksheetName 'Statement'
+    $total = [decimal]0; foreach ($r in $Rows) { $total += $r.RowTotal }
+    $width = 7 + [int]$Result.Config.Usage.Columns.Contains('Team') + [int][bool]$Result.Config.Ad.CostCenter + [int][bool]$NoOwner
+    $next = Write-XlHeader $ws $Result $Title (Get-Subtitle $Result $(if ($NoOwner) { 'for the owner only' })) $total (Get-CountLine $Rows) $width
+    if (-not $Rows.Count -and $NoOwner) { Set-XlText $ws.Cells[$next, 1] 'Every charged row has an owner.' -Color 'Text2'; $next += 2 }
+    [void](Write-XlStatementTable $ws $next $Rows $Result -WithReason:$NoOwner -Freeze)
+    Set-XlPage $ws
+    Write-XlExplanation (Add-Worksheet -ExcelPackage $pkg -WorksheetName 'How this was calculated') $Rows $Result
+    Save-XlPackage $pkg $Path
 }
 
 # A node's own direct charge plus every node beneath, down LevelsLeft levels (-1 = all).
@@ -289,70 +309,68 @@ function Save-RollupFile {
     $people = [System.Collections.Generic.HashSet[string]]::new()
     foreach ($r in $rows) { [void]$people.Add($(if ($r.User) { $r.User.Id } else { "row$($r.RowNumber)" })) }
 
-    $pkg = Open-ExcelPackage -Path $Path -Create
-    try {
-        $ws = Add-Worksheet -ExcelPackage $pkg -WorksheetName 'Summary'
-        $count = '{0} manager{1} below you · {2} people' -f $below.Count, $(if ($below.Count -eq 1) { '' } else { 's' }), $people.Count
-        $row = Write-XlHeader $ws $Result $Node.Name (Get-Subtitle $Result 'Roll-up') $team $count 4
-        $heads = 'Manager', 'People', 'Direct charge', 'With teams below'
-        for ($c = 1; $c -le 4; $c++) {
-            $cell = $ws.Cells[$row, $c]
-            Set-XlText $cell $heads[$c - 1] -Bold
-            if ($c -gt 1) { $cell.Style.HorizontalAlignment = [OfficeOpenXml.Style.ExcelHorizontalAlignment]::Right }
-            $cell.Style.Border.Bottom.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Thin
-            $cell.Style.Border.Bottom.Color.SetColor((Get-XlColor 'Text2'))
-        }
-        $ws.Column(1).Width = 34; $ws.Column(2).Width = 10; $ws.Column(3).Width = 16; $ws.Column(4).Width = 18
-        $ws.View.FreezePanes($row + 1, 1)
-        $sumPeople = 0; $sumDirect = [decimal]0
-        foreach ($s in $sub) {
-            $row++
-            $n = $s.Node
-            $p = if ($n.Direct) { $n.Direct.People.Count } else { 0 }
-            Set-XlText $ws.Cells[$row, 1] $(if ($s.Level -eq 0) { "$($n.Name) (direct)" } else { $n.Name })
-            $ws.Cells[$row, 1].Style.Indent = [Math]::Max(0, $s.Level - 1) * 2
-            $ws.Cells[$row, 2].Value = $p
-            Set-XlMoney $ws.Cells[$row, 3] $n.DirectTotal
-            $t = if ($s.Level -eq 0) { $n.DirectTotal } else { Get-TeamTotal $n $(if ($depth -eq 0) { -1 } else { $depth - $s.Level }) }
-            Set-XlMoney $ws.Cells[$row, 4] $t
-            for ($c = 1; $c -le 4; $c++) {
-                $ws.Cells[$row, $c].Style.Border.Bottom.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Hair
-                $ws.Cells[$row, $c].Style.Border.Bottom.Color.SetColor((Get-XlColor 'Hairline'))
-            }
-            $sumPeople += $p; $sumDirect += $n.DirectTotal
-        }
-        $row++
-        Set-XlText $ws.Cells[$row, 1] 'Total' -Bold
-        $ws.Cells[$row, 2].Value = $sumPeople; $ws.Cells[$row, 2].Style.Font.Bold = $true
-        Set-XlMoney $ws.Cells[$row, 3] $sumDirect; $ws.Cells[$row, 3].Style.Font.Bold = $true
-        for ($c = 1; $c -le 4; $c++) { $ws.Cells[$row, $c].Style.Border.Top.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Thin }
-        $row += 2
-        Set-XlText $ws.Cells[$row, 1] 'The total adds the Direct charge column only. "With teams below" includes the managers beneath, so adding it would count people twice.' -Color 'Text2'
-        $row++
-        Set-XlText $ws.Cells[$row, 1] 'These charges are assigned to the managers listed.' -Color 'Text2'
-
-        # Detail sheets: own direct reports first, then each manager below (depth first), up to MaxTabs sheets in all.
-        $used = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-        [void]$used.Add('Summary')
-        $withRows = @($sub | Where-Object { $_.Node.Direct })
-        $room = $maxTabs - 1
-        $omitted = [Math]::Max(0, $withRows.Count - $room)
-        foreach ($s in $withRows | Select-Object -First ([Math]::Max(0, $room))) {
-            $n = $s.Node
-            $name = ConvertTo-SheetName $(if ($s.Level -eq 0) { "$($n.Name) (direct)" } else { $n.Name }) $used $n.Key
-            $sh = Add-Worksheet -ExcelPackage $pkg -WorksheetName $name
-            Set-XlText $sh.Cells[1, 1] $n.Name -Size 14 -Bold
-            Set-XlText $sh.Cells[2, 1] (Get-CountLine $n.Direct.Rows) -Color 'Text2'
-            [void](Write-XlStatementTable $sh 4 $n.Direct.Rows.ToArray() $Result -Freeze)
-            Set-XlPage $sh
-        }
-        if ($omitted) {
-            $row++
-            Set-XlText $ws.Cells[$row, 1] "$omitted managers have no sheet in this file (Rollup.MaxTabs = $maxTabs). The table above lists everyone." -Color 'Text2'
-        }
-        Set-XlPage $ws
+    $pkg = [OfficeOpenXml.ExcelPackage]::new()
+    $ws = Add-Worksheet -ExcelPackage $pkg -WorksheetName 'Summary'
+    $count = '{0} manager{1} below you · {2} people' -f $below.Count, $(if ($below.Count -eq 1) { '' } else { 's' }), $people.Count
+    $row = Write-XlHeader $ws $Result $Node.Name (Get-Subtitle $Result 'Roll-up') $team $count 4
+    $heads = 'Manager', 'People', 'Direct charge', 'With teams below'
+    for ($c = 1; $c -le 4; $c++) {
+        $cell = $ws.Cells[$row, $c]
+        Set-XlText $cell $heads[$c - 1] -Bold
+        if ($c -gt 1) { $cell.Style.HorizontalAlignment = [OfficeOpenXml.Style.ExcelHorizontalAlignment]::Right }
+        $cell.Style.Border.Bottom.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Thin
+        $cell.Style.Border.Bottom.Color.SetColor((Get-XlColor 'Text2'))
     }
-    finally { Close-ExcelPackage $pkg }
+    $ws.Column(1).Width = 34; $ws.Column(2).Width = 10; $ws.Column(3).Width = 16; $ws.Column(4).Width = 18
+    $ws.View.FreezePanes($row + 1, 1)
+    $sumPeople = 0; $sumDirect = [decimal]0
+    foreach ($s in $sub) {
+        $row++
+        $n = $s.Node
+        $p = if ($n.Direct) { $n.Direct.People.Count } else { 0 }
+        Set-XlText $ws.Cells[$row, 1] $(if ($s.Level -eq 0) { "$($n.Name) (direct)" } else { $n.Name })
+        $ws.Cells[$row, 1].Style.Indent = [Math]::Max(0, $s.Level - 1) * 2
+        $ws.Cells[$row, 2].Value = $p
+        Set-XlMoney $ws.Cells[$row, 3] $n.DirectTotal
+        $t = if ($s.Level -eq 0) { $n.DirectTotal } else { Get-TeamTotal $n $(if ($depth -eq 0) { -1 } else { $depth - $s.Level }) }
+        Set-XlMoney $ws.Cells[$row, 4] $t
+        for ($c = 1; $c -le 4; $c++) {
+            $ws.Cells[$row, $c].Style.Border.Bottom.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Hair
+            $ws.Cells[$row, $c].Style.Border.Bottom.Color.SetColor((Get-XlColor 'Hairline'))
+        }
+        $sumPeople += $p; $sumDirect += $n.DirectTotal
+    }
+    $row++
+    Set-XlText $ws.Cells[$row, 1] 'Total' -Bold
+    $ws.Cells[$row, 2].Value = $sumPeople; $ws.Cells[$row, 2].Style.Font.Bold = $true
+    Set-XlMoney $ws.Cells[$row, 3] $sumDirect; $ws.Cells[$row, 3].Style.Font.Bold = $true
+    for ($c = 1; $c -le 4; $c++) { $ws.Cells[$row, $c].Style.Border.Top.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Thin }
+    $row += 2
+    Set-XlText $ws.Cells[$row, 1] 'The total adds the Direct charge column only. "With teams below" includes the managers beneath, so adding it would count people twice.' -Color 'Text2'
+    $row++
+    Set-XlText $ws.Cells[$row, 1] 'These charges are assigned to the managers listed.' -Color 'Text2'
+
+    # Detail sheets: own direct reports first, then each manager below (depth first), up to MaxTabs sheets in all.
+    $used = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    [void]$used.Add('Summary')
+    $withRows = @($sub | Where-Object { $_.Node.Direct })
+    $room = $maxTabs - 1
+    $omitted = [Math]::Max(0, $withRows.Count - $room)
+    foreach ($s in $withRows | Select-Object -First ([Math]::Max(0, $room))) {
+        $n = $s.Node
+        $name = ConvertTo-SheetName $(if ($s.Level -eq 0) { "$($n.Name) (direct)" } else { $n.Name }) $used $n.Key
+        $sh = Add-Worksheet -ExcelPackage $pkg -WorksheetName $name
+        Set-XlText $sh.Cells[1, 1] $n.Name -Size 14 -Bold
+        Set-XlText $sh.Cells[2, 1] (Get-CountLine $n.Direct.Rows) -Color 'Text2'
+        [void](Write-XlStatementTable $sh 4 $n.Direct.Rows.ToArray() $Result -Freeze)
+        Set-XlPage $sh
+    }
+    if ($omitted) {
+        $row++
+        Set-XlText $ws.Cells[$row, 1] "$omitted managers have no sheet in this file (Rollup.MaxTabs = $maxTabs). The table above lists everyone." -Color 'Text2'
+    }
+    Set-XlPage $ws
+    Save-XlPackage $pkg $Path
 }
 
 function Write-Statement {

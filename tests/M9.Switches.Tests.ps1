@@ -35,3 +35,21 @@ Describe 'Output switches (-Skip)' {
         { Invoke-DivvyOut @s -Skip Diagnostics 6>$null } | Should -Throw '*does not belong to the set*'
     }
 }
+
+Describe 'Relative paths (run from another folder)' {
+    It 'reads inputs and writes outputs relative to the PowerShell location, not the process folder' {
+        $work = Join-Path $TestDrive 'work'; $elsewhere = Join-Path $TestDrive 'elsewhere'
+        New-Item -ItemType Directory $work, $elsewhere | Out-Null
+        $Ad | Export-Csv (Join-Path $work 'ad.csv') -Encoding utf8BOM
+        $Usage | Export-Csv (Join-Path $work 'usage.csv') -Encoding utf8BOM
+        $before = [Environment]::CurrentDirectory
+        [Environment]::CurrentDirectory = $elsewhere
+        Push-Location $work
+        try { $r = Invoke-DivvyOut -Profile (Get-TestProfile) -Quote $Quote -Usage 'usage.csv' -Ad 'ad.csv' -OutputRoot 'out' -PassThru 6>$null }
+        finally { Pop-Location; [Environment]::CurrentDirectory = $before }
+        $r.OutputDir | Should -BeLike (Join-Path $work 'out*')
+        Test-Path (Join-Path $r.OutputDir 'statements/Person lead.xlsx') | Should -BeTrue
+        Test-Path (Join-Path $r.OutputDir 'audit.csv') | Should -BeTrue
+        @(Get-ChildItem $elsewhere -Recurse).Count | Should -Be 0
+    }
+}

@@ -1,5 +1,9 @@
 # Small helpers shared by the core.
 
+# Full path from a PowerShell path. .NET file methods resolve relative paths against the process
+# directory, which does not follow Set-Location, so every path given to .NET goes through this.
+function Get-FullPath { param([string]$Path) $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path) }
+
 # Records a problem. Message must be safe to share (names of columns, counts, row numbers).
 # Detail may hold values (emails, names) and goes only to owner-only reports.
 function Add-Issue {
@@ -106,16 +110,26 @@ function Format-Money { param([decimal]$Value) $Value.ToString('0.00', [culturei
 # Rows are dictionaries keyed by column name. Decimals are written in invariant culture.
 function Export-DivvyCsv {
     param([Parameter(Mandatory)] [string]$Path, [Parameter(Mandatory)] [string[]]$Columns, [object[]]$Rows = @())
-    $cell = {
-        param($v)
-        $s = if ($null -eq $v) { '' } elseif ($v -is [decimal]) { $v.ToString([cultureinfo]::InvariantCulture) } else { [string]$v }
-        if ($s -match '^[=+\-@\t\r]') { $s = "'" + $s }
-        '"' + $s.Replace('"', '""') + '"'
+    # Plain loops, no script block per cell: the audit file has over a million cells at work scale.
+    $inv = [cultureinfo]::InvariantCulture
+    $sb = [System.Text.StringBuilder]::new()
+    $lines = [System.Collections.Generic.List[object]]::new()
+    $header = [ordered]@{}; foreach ($c in $Columns) { $header[$c] = $c }
+    $lines.Add($header)
+    foreach ($r in $Rows) { $lines.Add($r) }
+    foreach ($r in $lines) {
+        $firstCell = $true
+        foreach ($c in $Columns) {
+            $v = $r[$c]
+            $s = if ($null -eq $v) { '' } elseif ($v -is [decimal]) { $v.ToString($inv) } else { [string]$v }
+            if ($s.Length -and '=+-@'.IndexOf($s[0]) -ge 0 -or $s.StartsWith("`t") -or $s.StartsWith("`r")) { $s = "'" + $s }
+            if (-not $firstCell) { [void]$sb.Append(',') }
+            [void]$sb.Append('"').Append($s.Replace('"', '""')).Append('"')
+            $firstCell = $false
+        }
+        [void]$sb.Append([Environment]::NewLine)
     }
-    $lines = [System.Collections.Generic.List[string]]::new()
-    $lines.Add((@($Columns | ForEach-Object { & $cell $_ }) -join ','))
-    foreach ($r in $Rows) { $lines.Add((@($Columns | ForEach-Object { & $cell $r[$_] }) -join ',')) }
-    [IO.File]::WriteAllLines($Path, $lines, [Text.UTF8Encoding]::new($true))
+    [IO.File]::WriteAllText((Get-FullPath $Path), $sb.ToString(), [Text.UTF8Encoding]::new($true))
 }
 
 # Usage fields that identify a person (the match rules' usage fields, in rule order).
