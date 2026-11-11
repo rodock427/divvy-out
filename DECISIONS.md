@@ -94,3 +94,7 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D69. Managers list.** Direct view lists charge owners; "With teams below" also lists managers who only have teams beneath (directors). Clicking a manager shows their direct-report rows. Top 6 by default, "Show all", search shows every match.
 - **D70. Attention list**: not here (not charged), need an owner, matched by a fallback rule, rows under a manager loop, overrides that could not be applied. Each row opens its usage rows.
 - **D71. Lists capped** for reading: top 10 token users (by token charge), top 10 cost centers. Full data is in the CSVs.
+
+## Finish (M9)
+
+- **D72. Output switches.** One parameter, `-Skip`, with a fixed list: Summary, NotFound (also the overrides template), Exceptions, Statements, Rollups, Audit, Dashboard, Inputs. No `-Outputs` (it would say the same thing the other way round). `diagnostics.txt` (FR-12) and `manifest.json` (traceability) cannot be skipped. The manifest records what was skipped.

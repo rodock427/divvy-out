@@ -12,7 +12,9 @@ param(
     [string]$Overrides,
     [string]$OutputRoot = 'output',
     [switch]$AllowUnrecovered,
-    [switch]$IncludeAmounts
+    [switch]$IncludeAmounts,
+    [ValidateSet('Summary', 'NotFound', 'Exceptions', 'Statements', 'Rollups', 'Audit', 'Dashboard', 'Inputs')]
+    [string[]]$Skip
 )
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../src/DivvyOut/DivvyOut.psd1') -Force

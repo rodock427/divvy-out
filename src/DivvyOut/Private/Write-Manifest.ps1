@@ -44,7 +44,7 @@ function Write-Manifest {
         Period         = $Result.Quote.Period
         Status         = $Result.Status
         DraftReasons   = @($Result.DraftReasons)
-        Options        = [ordered]@{ AllowUnrecovered = [bool]$Result.Options.AllowUnrecovered; IncludeAmounts = [bool]$Result.Options.IncludeAmounts }
+        Options        = [ordered]@{ AllowUnrecovered = [bool]$Result.Options.AllowUnrecovered; IncludeAmounts = [bool]$Result.Options.IncludeAmounts; Skip = @($Result.Options.Skip) }
         Inputs         = $inputs
         MatchReport    = [ordered]@{ Lines = @($Result.MatchReport.Lines); Counts = $Result.MatchReport.Counts }
         RowStates      = [ordered]@{}

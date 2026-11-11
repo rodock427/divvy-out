@@ -356,19 +356,21 @@ function Save-RollupFile {
 }
 
 function Write-Statement {
-    param([Parameter(Mandatory)] $Result, [Parameter(Mandatory)] [string]$Dir)
+    param([Parameter(Mandatory)] $Result, [Parameter(Mandatory)] [string]$Dir, [switch]$NoStatements, [switch]$NoRollups)
     $stDir = Join-Path $Dir 'statements'
     $ruDir = Join-Path $stDir 'rollup'
     New-Item -ItemType Directory -Force -Path $stDir | Out-Null
-    $groups = @(Get-ManagerSummary $Result)
-    $managers = @($groups | Where-Object Key -ne '~NO OWNER')
-    $names = Get-UniqueFileName $managers
-    foreach ($g in $managers) { Save-StatementFile (Join-Path $stDir "$($names[$g.Key]).xlsx") $Result $g.Name $g.Rows.ToArray() }
-    $noOwner = @($groups | Where-Object Key -eq '~NO OWNER' | ForEach-Object { $_.Rows })
-    Save-StatementFile (Join-Path $stDir 'NO-OWNER.xlsx') $Result 'NO OWNER' $noOwner -NoOwner
+    if (-not $NoStatements) {
+        $groups = @(Get-ManagerSummary $Result)
+        $managers = @($groups | Where-Object Key -ne '~NO OWNER')
+        $names = Get-UniqueFileName $managers
+        foreach ($g in $managers) { Save-StatementFile (Join-Path $stDir "$($names[$g.Key]).xlsx") $Result $g.Name $g.Rows.ToArray() }
+        $noOwner = @($groups | Where-Object Key -eq '~NO OWNER' | ForEach-Object { $_.Rows })
+        Save-StatementFile (Join-Path $stDir 'NO-OWNER.xlsx') $Result 'NO OWNER' $noOwner -NoOwner
+    }
 
     $tree = Get-OrgTree $Result
-    if (-not $Result.Config.Rollup.Enabled) { return }
+    if ($NoRollups -or -not $Result.Config.Rollup.Enabled) { return }
     $tops = @($tree.Nodes.Values | Where-Object { $_.Children.Count -and -not $_.InLoop })
     if (-not $tops.Count) { return }
     New-Item -ItemType Directory -Force -Path $ruDir | Out-Null
