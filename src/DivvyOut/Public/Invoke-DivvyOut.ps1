@@ -40,6 +40,7 @@ function Invoke-DivvyOut {
         Write-Exceptions -Result $result -Path (Join-Path $runDir 'exceptions.csv')
         Write-Statement -Result $result -Dir $runDir
         Write-Audit -Result $result -Path (Join-Path $runDir 'audit.csv')
+        Write-Dashboard -Result $result -Path (Join-Path $runDir 'dashboard.html')
         Copy-RunInput -Result $result -Dir $runDir
         Write-Manifest -Result $result -Path (Join-Path $runDir 'manifest.json')
     }

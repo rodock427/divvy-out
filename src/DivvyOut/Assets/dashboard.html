@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DivvyOut dashboard</title>
+<style>
+  :root {
+    --s1: #2a78d6; --s2: #eb6834; --good: #0ca30c; --warn: #fab219;
+    --t1: #0b0b0b; --t2: #52514e; --t3: #898781; --line: #e1e0d9; --bg: #ffffff; --hover: #f4f3ef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --s1: #3987e5; --s2: #d95926; --t1: #f0efec; --t2: #c3c2b7; --t3: #898781; --line: #2c2c2a; --bg: #141413; --hover: #1e1e1c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--t1); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .sub, .note { color: var(--t2); font-size: 13px; }
+  .note { margin: 0 0 10px; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  section { margin: 32px 0 0; }
+  button { font: inherit; color: var(--t1); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button[aria-pressed="true"] { border-color: var(--t2); font-weight: 600; }
+  input[type="search"] { font: inherit; color: var(--t1); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; min-width: 0; flex: 1 1 180px; }
+
+  .status { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 16px 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; }
+  .chip { font-weight: 650; padding: 2px 12px; border-radius: 999px; }
+  .final .chip { background: var(--good); color: #fff; }
+  .draft .chip { background: var(--warn); color: #0b0b0b; }
+
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .tile { padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; }
+  .tile .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile.hero .v { font-size: 34px; }
+  .tile .l { color: var(--t2); font-size: 13px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 10px; }
+  .bars { display: grid; gap: 2px; }
+  .bar-row { display: grid; grid-template-columns: minmax(90px, 32%) minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 3px 4px; border-radius: 4px; }
+  .bar-row.click { cursor: pointer; }
+  .bar-row.click:hover, .bar-row.click:focus { background: var(--hover); outline: none; }
+  .bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .track { display: flex; height: 14px; }
+  .seg { height: 14px; min-width: 1px; }
+  .s1 { background: var(--s1); } .s2 { background: var(--s2); }
+  .stack { display: flex; height: 20px; border-radius: 2px; overflow: hidden; margin: 6px 0; }
+  .stack .seg { height: 20px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: baseline; }
+
+  .attn { border-top: 1px solid var(--line); }
+  .attn-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto 16px; gap: 10px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .attn-row:hover, .attn-row:focus { background: var(--hover); outline: none; }
+  .ok { color: var(--t3); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; border-bottom: 1px solid var(--t3); padding: 6px 6px; }
+  td { border-bottom: 1px solid var(--line); padding: 5px 6px; }
+  th.num { text-align: right; }
+  .scroll { overflow-x: auto; }
+  #detail[hidden] { display: none; }
+
+  @media print {
+    .controls, #search, .no-print { display: none !important; }
+    .seg, .chip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <div class="sub" id="subtitle"></div>
+  <div id="status" class="status" role="status"></div>
+  <div class="tiles" id="tiles"></div>
+
+  <section>
+    <h2>Managers by charge</h2>
+    <p class="note" id="mgr-note"></p>
+    <div class="controls">
+      <input type="search" id="search" placeholder="Search managers" aria-label="Search managers">
+      <span class="sub">Sort</span>
+      <button type="button" data-sort="charge" aria-pressed="true">Charge</button>
+      <button type="button" data-sort="name" aria-pressed="false">Name</button>
+      <span class="sub">Show</span>
+      <button type="button" data-view="direct" aria-pressed="true">Direct</button>
+      <button type="button" data-view="team" aria-pressed="false">With teams below</button>
+    </div>
+    <div class="bars" id="managers"></div>
+    <div class="controls no-print"><button type="button" id="more"></button></div>
+  </section>
+
+  <section id="detail" hidden>
+    <h2 id="detail-title"></h2>
+    <p class="note" id="detail-note"></p>
+    <div class="scroll"><table id="detail-table"></table></div>
+    <div class="controls no-print"><button type="button" id="detail-close">Close</button></div>
+  </section>
+
+  <section>
+    <h2>Seats and tokens</h2>
+    <div class="stack" id="split"></div>
+    <div class="legend" id="split-legend"></div>
+  </section>
+
+  <section>
+    <h2>Needs attention</h2>
+    <div class="attn" id="attention"></div>
+  </section>
+
+  <section>
+    <h2>Charge by offering</h2>
+    <div class="legend" id="off-legend"></div>
+    <div class="bars" id="offerings"></div>
+  </section>
+
+  <section>
+    <h2>Top token users</h2>
+    <div class="bars" id="tokens"></div>
+  </section>
+
+  <section id="cc-section" hidden>
+    <h2>By cost center</h2>
+    <p class="note" id="cc-note"></p>
+    <div class="bars" id="costcenters"></div>
+  </section>
+
+  <section>
+    <h2>Quote vs allocated</h2>
+    <div class="scroll"><table id="recon"></table></div>
+  </section>
+
+  <section>
+    <h2>Exceptions</h2>
+    <div class="scroll"><table id="exceptions"></table></div>
+  </section>
+</main>
+
+<script id="divvy-data" type="application/json">__DIVVY_DATA__</script>
+<script>
+(function () {
+  'use strict';
+  var D = JSON.parse(document.getElementById('divvy-data').textContent);
+  var $ = function (id) { return document.getElementById(id); };
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined && text !== null) e.textContent = text; return e; }
+  function money(s) {
+    var parts = String(s).split('.'), i = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return '$' + i + '.' + (parts[1] || '00');
+  }
+  function count(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function v(s) { return parseFloat(s) || 0; }
+  function plural(n, one, many) { return count(n) + ' ' + (n === 1 ? one : many); }
+  var CHECK = '✓', WARN = '⚠', INFO = 'ℹ', ARROW = '›';
+
+  // Header and status strip
+  $('title').textContent = D.run.vendor + ' · ' + D.run.period + ' renewal';
+  $('subtitle').textContent = 'Run ' + D.run.id + ' · ' + D.run.started + ' · DivvyOut ' + D.run.toolVersion + ' · owner only: lists everyone';
+  var st = $('status'), final = D.run.status === 'FINAL';
+  st.className = 'status ' + (final ? 'final' : 'draft');
+  st.appendChild(el('span', 'chip', (final ? CHECK + ' Final' : WARN + ' Draft')));
+  var balanced = D.rec.balanced && v(D.rec.unrecovered) === 0;
+  st.appendChild(el('span', null, final ? 'Reconciled · Quote = allocated' :
+    (D.run.reasons.join('; ') + (balanced ? ' · Quote = allocated' : ''))));
+  if (v(D.rec.unrecovered) > 0) st.appendChild(el('span', null, 'Not recovered: ' + money(D.rec.unrecovered)));
+
+  // Tiles
+  [['Total allocated', money(D.tiles.allocated), true], ['Users charged', count(D.tiles.users)],
+   ['Managers', count(D.tiles.managers)], ['Not found (not charged)', count(D.tiles.notFound)]].forEach(function (t) {
+    var d = el('div', 'tile' + (t[2] ? ' hero' : ''));
+    d.appendChild(el('div', 'v', t[1])); d.appendChild(el('div', 'l', t[0]));
+    $('tiles').appendChild(d);
+  });
+
+  // Bars: rows of [label, segments [{value, cls}], right text, title, onclick]
+  function bars(container, items, max) {
+    container.textContent = '';
+    items.forEach(function (it) {
+      var row = el('div', 'bar-row' + (it.click ? ' click' : ''));
+      row.title = it.title;
+      row.appendChild(el('div', 'name', it.label));
+      var tr = el('div', 'track');
+      it.segs.forEach(function (s) {
+        if (v(s.value) <= 0) return;
+        var seg = el('div', 'seg ' + s.cls); seg.style.width = (max > 0 ? (100 * v(s.value) / max) : 0) + '%';
+        seg.title = s.title || it.title; tr.appendChild(seg);
+      });
+      row.appendChild(tr);
+      row.appendChild(el('div', 'num', it.right));
+      if (it.click) { row.tabIndex = 0; row.addEventListener('click', it.click); row.addEventListener('keydown', function (e) { if (e.key === 'Enter') it.click(); }); }
+      container.appendChild(row);
+    });
+  }
+
+  // Managers list
+  var state = { sort: 'charge', view: 'direct', all: false, q: '' };
+  function value(m) { return state.view === 'team' ? m.team : m.direct; }
+  function drawManagers() {
+    var list = D.managers.filter(function (m) { return state.view === 'team' || v(m.direct) > 0 || m.rows.length; });
+    if (state.q) { var q = state.q.toLowerCase(); list = list.filter(function (m) { return m.name.toLowerCase().indexOf(q) >= 0; }); }
+    list.sort(state.sort === 'name' ? function (a, b) { return a.name.localeCompare(b.name) || a.key.localeCompare(b.key); }
+                                    : function (a, b) { return v(value(b)) - v(value(a)) || a.name.localeCompare(b.name); });
+    var total = list.length, shown = (state.all || state.q) ? list : list.slice(0, 6);
+    var max = Math.max.apply(null, shown.map(function (m) { return v(value(m)); }).concat([0]));
+    bars($('managers'), shown.map(function (m) {
+      return { label: m.name, segs: [{ value: value(m), cls: 's1' }], right: money(value(m)),
+               title: m.name + ': ' + money(value(m)) + (state.view === 'team' ? ' with teams below (direct ' + money(m.direct) + ')' : ' direct') + ' · ' + plural(m.people, 'person', 'people'),
+               click: m.rows.length ? function () { showRows(m.name, m.rows, (state.view === 'team' ? 'Direct reports only. ' : '') + plural(m.rows.length, 'row', 'rows') + '.'); } : null };
+    }), max);
+    $('mgr-note').textContent = (state.q ? shown.length + ' of ' + total + ' managers match' : 'Top ' + shown.length + ' of ' + total) +
+      (state.view === 'team' ? '. With teams below counts a manager’s whole team, so these do not add up to the total.' : '. Direct charge: each manager’s own direct reports.');
+    $('more').hidden = !!state.q || total <= 6;
+    $('more').textContent = state.all ? 'Show top 6' : 'Show all ' + total;
+  }
+  $('search').addEventListener('input', function (e) { state.q = e.target.value.trim(); drawManagers(); });
+  $('more').addEventListener('click', function () { state.all = !state.all; drawManagers(); });
+  document.querySelectorAll('[data-sort]').forEach(function (b) { b.addEventListener('click', function () {
+    state.sort = b.dataset.sort; document.querySelectorAll('[data-sort]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); drawManagers(); }); });
+  document.querySelectorAll('[data-view]').forEach(function (b) { b.addEventListener('click', function () {
+    state.view = b.dataset.view; document.querySelectorAll('[data-view]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); drawManagers(); }); });
+  drawManagers();
+
+  // Detail rows
+  function showRows(title, idx, note) {
+    $('detail').hidden = false; $('detail-title').textContent = title; $('detail-note').textContent = note || '';
+    var t = $('detail-table'); t.textContent = '';
+    var head = ['Row', 'Person', 'Team', 'Offering', 'Access', 'Tokens', 'Charge', 'State', 'Manager'];
+    var hr = el('tr'); head.forEach(function (h, i) { hr.appendChild(el('th', (i === 0 || i === 5 || i === 6) ? 'num' : null, h)); });
+    var th = el('thead'); th.appendChild(hr); t.appendChild(th);
+    var tb = el('tbody');
+    idx.forEach(function (i) {
+      var r = D.rows[i], tr = el('tr');
+      [[r.n, 'num'], [r.person], [r.team], [r.offering], [r.access], [r.access === 'Token' ? count(r.tokens) : '–', 'num'],
+       [money(r.total), 'num'], [r.state + (r.reason ? ' · ' + r.reason : '')], [r.manager]].forEach(function (c) { tr.appendChild(el('td', c[1] || null, c[0])); });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  $('detail-close').addEventListener('click', function () { $('detail').hidden = true; });
+
+  // Seats and tokens: one stacked bar
+  var seat = v(D.split.seat), tok = v(D.split.token), all = seat + tok;
+  [[seat, 's1', 'Seats', D.split.seat], [tok, 's2', 'Tokens', D.split.token]].forEach(function (p) {
+    var pct = all > 0 ? Math.round(1000 * p[0] / all) / 10 : 0;
+    if (p[0] > 0) { var seg = el('div', 'seg ' + p[1]); seg.style.width = (100 * p[0] / all) + '%'; seg.title = p[2] + ': ' + money(p[3]) + ' (' + pct + '%)'; $('split').appendChild(seg); }
+    var item = el('span'); item.appendChild(el('span', 'sw ' + p[1])); item.appendChild(document.createTextNode(p[2] + ' ' + pct + '% · ' + money(p[3])));
+    $('split-legend').appendChild(item);
+  });
+
+  // Attention list
+  D.attention.forEach(function (a) {
+    var row = el('div', 'attn-row'); row.tabIndex = 0;
+    row.appendChild(el('span', a.count ? null : 'ok', a.count ? (a.level === 'info' ? INFO : WARN) : CHECK));
+    row.appendChild(el('span', null, a.label));
+    row.appendChild(el('span', 'num', count(a.count)));
+    row.appendChild(el('span', 'ok', a.rows.length ? ARROW : ''));
+    if (a.rows.length) {
+      var go = function () { showRows(a.label, a.rows, plural(a.rows.length, 'row', 'rows') + '.'); };
+      row.addEventListener('click', go); row.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    }
+    $('attention').appendChild(row);
+  });
+
+  // Charge by offering (seat + token split per offering)
+  [['s1', 'Seats'], ['s2', 'Tokens']].forEach(function (p) { var i = el('span'); i.appendChild(el('span', 'sw ' + p[0])); i.appendChild(document.createTextNode(p[1])); $('off-legend').appendChild(i); });
+  var offMax = Math.max.apply(null, D.offerings.map(function (o) { return v(o.seat) + v(o.token); }).concat([0]));
+  bars($('offerings'), D.offerings.map(function (o) {
+    return { label: o.name, segs: [{ value: o.seat, cls: 's1', title: o.name + ' seats: ' + money(o.seat) }, { value: o.token, cls: 's2', title: o.name + ' tokens: ' + money(o.token) }],
+             right: money(o.total), title: o.name + ': ' + money(o.total) + ' (seats ' + money(o.seat) + ', tokens ' + money(o.token) + ')' };
+  }), offMax);
+
+  // Top token users
+  var tMax = Math.max.apply(null, D.topTokens.map(function (t) { return v(t.charge); }).concat([0]));
+  bars($('tokens'), D.topTokens.map(function (t) {
+    return { label: t.person, segs: [{ value: t.charge, cls: 's2' }], right: money(t.charge), title: t.person + ': ' + count(t.tokens) + ' tokens = ' + money(t.charge) };
+  }), tMax);
+
+  // By cost center
+  if (D.costCenters) {
+    $('cc-section').hidden = false;
+    var cc = D.costCenters.slice(0, 10);
+    $('cc-note').textContent = 'Top ' + cc.length + ' of ' + D.costCenters.length + ' (all charged rows, including rows with no owner).';
+    var cMax = Math.max.apply(null, cc.map(function (c) { return v(c.total); }).concat([0]));
+    bars($('costcenters'), cc.map(function (c) {
+      return { label: c.name || '(none)', segs: [{ value: c.total, cls: 's1' }], right: money(c.total), title: (c.name || '(none)') + ': ' + money(c.total) };
+    }), cMax);
+  }
+
+  // Quote vs allocated
+  function table(t, head, rows, numCols) {
+    var hr = el('tr'); head.forEach(function (h, i) { hr.appendChild(el('th', numCols.indexOf(i) >= 0 ? 'num' : null, h)); });
+    var th = el('thead'); th.appendChild(hr); t.appendChild(th);
+    var tb = el('tbody'); rows.forEach(function (r) { var tr = el('tr'); r.forEach(function (c, i) { tr.appendChild(el('td', numCols.indexOf(i) >= 0 ? 'num' : null, c)); }); tb.appendChild(tr); });
+    t.appendChild(tb);
+  }
+  table($('recon'), ['Pool', 'Quote', 'Allocated', 'Rows', 'Note'],
+    D.rec.pools.map(function (p) { return [p.name, money(p.price), money(p.allocated), count(p.rows), p.unrecoverable ? WARN + ' nobody to charge' : (p.ignored ? 'left out (no usage)' : CHECK)]; })
+      .concat([['Total', money(D.rec.quote), money(D.rec.allocated), '', v(D.rec.unrecovered) > 0 ? 'Not recovered ' + money(D.rec.unrecovered) : (D.rec.balanced ? CHECK + ' Quote = allocated' : WARN)]]),
+    [1, 2, 3]);
+  table($('exceptions'), ['Level', 'Code', 'Rows', 'What'], D.exceptions.map(function (x) { return [x.level, x.code, count(x.rows), x.message]; }), [2]);
+})();
+</script>
+</body>
+</html>

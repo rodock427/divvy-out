@@ -85,3 +85,12 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D63. Input copies.** Every run copies its input files to `<run>/inputs/` (spec 9). The M7 list says `-ArchiveInputs`, but spec 9 says copying is the default and a switch to turn it off comes later (M9). No switch yet. Two inputs with the same file name: the second gets its role as a prefix (`directory-data.csv`). A profile or quote passed as a hashtable is listed as `(in memory)` with no hash.
 - **D64. `manifest.json`** is written only on successful runs (like the other reports, D51). Amounts are strings with 2 decimals (no float rounding in JSON). It holds amounts: owner-only.
 - **D65. Audit numbers.** `Tokens` on a seat row is 0 (ignored); the original text is still in `usage_<header>`. `TokenRate` is the full unrounded rate. A row fixed by `LinkTo` shows `MatchRule = Override`.
+
+## Dashboard (M8)
+
+- **D66. No chart library.** Bars are plain HTML/CSS (spec 12 allows Chart.js inlined, but it is not needed for these views and adds a large blob). Hover text uses the native `title` tooltip.
+- **D67. Data is inline JSON** in a `<script type="application/json">` block; every `<` is escaped so no name can close the tag. The page builds everything with `textContent` (no HTML from data).
+- **D68. Tiles.** "Users charged" = distinct people on charged and NeedsOwner rows. "Not found (not charged)" = distinct people on `NotHere` rows. "Managers" = charge owners (NO OWNER excluded).
+- **D69. Managers list.** Direct view lists charge owners; "With teams below" also lists managers who only have teams beneath (directors). Clicking a manager shows their direct-report rows. Top 6 by default, "Show all", search shows every match.
+- **D70. Attention list**: not here (not charged), need an owner, matched by a fallback rule, rows under a manager loop, overrides that could not be applied. Each row opens its usage rows.
+- **D71. Lists capped** for reading: top 10 token users (by token charge), top 10 cost centers. Full data is in the CSVs.
