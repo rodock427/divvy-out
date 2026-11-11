@@ -24,6 +24,8 @@ function Invoke-DivvyOut {
     try {
         Read-DivvyInput -Result $result -ProfileSource $Profile -QuoteSource $Quote -UsagePath $Usage -AdPath $Ad -OverridesPath $Overrides
         Assert-NoError $result 'Input validation failed'
+        Resolve-UserMatch -Result $result
+        foreach ($line in $result.MatchReport.Lines) { Write-Host "  $line" }
         $result.Status = 'VALIDATED'
     }
     catch {

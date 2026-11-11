@@ -88,7 +88,7 @@ function Import-UsageFile {
                 Tokens = if ($kind -eq 'Token') { $tokens } else { [decimal]0 }
                 # Filled in later stages:
                 MatchStatus = $null; MatchRule = $null; MatchValue = $null; MatchDirValue = $null; Candidates = @(); User = $null
-                PreferEnabledDropped = $false
+                PreferEnabledDropped = $false; DisabledSkipped = $false
                 Override = $null; State = $null; Reason = $null
                 ManagerDirId = $null; ManagerDirName = $null; ManagerId = $null; ManagerName = $null; ManagerSource = $null
                 CostCenterRaw = $null; CostCenter = $null

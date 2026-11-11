@@ -34,3 +34,5 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D27. Diagnostics** show input file types and row counts, not file names (names can contain a person's name). Unexpected errors show the error type and code location only, never the message (it can contain data values).
 - **D28. Seat rows** keep `Tokens = 0` internally. A non-numeric token value on a seat row is a warning, not a stop.
 - **D29. Directory blank IDs** stop the run like repeated IDs.
+- **D30. Match outcomes.** Every row gets `Matched`, `Ambiguous`, `Disabled`, or `NoMatch`. With `PreferEnabled` off, a live and a disabled account on one value are `Ambiguous` (spec step 5). With it on or off, hits that are all disabled count as "disabled" (D12, D13).
+- **D31. `Test-DivvyOutInput`** also runs matching and prints the match report (spec 5.5 lists the match report as part of validation). It writes no files.
