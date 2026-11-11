@@ -7,7 +7,7 @@ Contents (see samples/README.md for the full list of planted cases):
   ad-snapshot.csv   ~330 directory users: 5-level org, disabled users, a disabled manager,
                     old disabled duplicates, ambiguous shared mailboxes, a manager loop,
                     managers missing from the snapshot, non-English names, cost centers with commas
-  usage.csv/.xlsx   ~400 usage rows in the 24-column fake layout
+  autodesk_usage_2027.csv/.xlsx   ~400 usage rows in the 24-column fake layout
   overrides.csv     sample overrides (exclude, link, manager, cost center, stale)
 #>
 param([string]$OutDir = $PSScriptRoot, [int]$Seed = 2027)
@@ -211,8 +211,8 @@ $overrides = @(
 # --- Write ---
 $adPath = Join-Path $OutDir 'ad-snapshot.csv'
 $users | Sort-Object objectGUID | Export-Csv $adPath -Encoding utf8BOM
-$rows | Export-Csv (Join-Path $OutDir 'usage.csv') -Encoding utf8BOM
-$xlsx = Join-Path $OutDir 'usage.xlsx'
+$rows | Export-Csv (Join-Path $OutDir 'autodesk_usage_2027.csv') -Encoding utf8BOM
+$xlsx = Join-Path $OutDir 'autodesk_usage_2027.xlsx'
 Remove-Item $xlsx -ErrorAction SilentlyContinue
 $rows | Export-Excel $xlsx -WorksheetName 'Usage' 3>$null
 $overrides | Export-Csv (Join-Path $OutDir 'overrides.csv') -Encoding utf8BOM

@@ -3,7 +3,7 @@ function Invoke-DivvyOut {
     .SYNOPSIS
     Runs the chargeback: reads the inputs, matches users, charges managers, writes all outputs to output/<run-id>/.
     .EXAMPLE
-    Invoke-DivvyOut -Profile config/profiles/autodesk.psd1 -Quote inputs/2027-autodesk.psd1 -Usage inputs/usage.xlsx -Ad inputs/ad-snapshot.csv -Overrides inputs/overrides.csv
+    Invoke-DivvyOut -Profile config/profiles/autodesk_profile_2027.psd1 -Quote inputs/autodesk_quote_2027.psd1 -Usage inputs/autodesk_usage_2027.xlsx -Ad inputs/ad-snapshot.csv -Overrides inputs/overrides.csv
     .EXAMPLE
     Invoke-DivvyOut ... -Skip Statements, Rollups, Inputs      # numbers only, no Excel files, no input copies
     #>

@@ -1,7 +1,7 @@
 # Export-AdUsers.ps1 with a mocked Get-ADUser (the real one cannot run here). Fake data only.
 BeforeAll {
     $script:Script = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts/Export-AdUsers.ps1'
-    $script:ProfilePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'config/profiles/autodesk.psd1'
+    $script:ProfilePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'config/profiles/autodesk_profile_2027.psd1'
     # Stub so Pester can mock a command that does not exist on this machine.
     if (-not (Get-Command Get-ADUser -ErrorAction SilentlyContinue)) {
         function global:Get-ADUser { param($Filter, $Properties, $SearchBase, $Server, $Identity) }

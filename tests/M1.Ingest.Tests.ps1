@@ -195,8 +195,8 @@ Describe 'Diagnostics (spec 9.5)' {
     BeforeAll {
         $repo = Split-Path -Parent $PSScriptRoot
         $script:DiagSplat = @{
-            Profile = Join-Path $repo 'config/profiles/autodesk.psd1'; Quote = Join-Path $repo 'config/quotes/2027-autodesk.psd1'
-            Usage = Join-Path $repo 'samples/usage.xlsx'; Ad = Join-Path $repo 'samples/ad-snapshot.csv'
+            Profile = Join-Path $repo 'config/profiles/autodesk_profile_2027.psd1'; Quote = Join-Path $repo 'config/quotes/autodesk_quote_2027.psd1'
+            Usage = Join-Path $repo 'samples/autodesk_usage_2027.xlsx'; Ad = Join-Path $repo 'samples/ad-snapshot.csv'
             Overrides = Join-Path $repo 'samples/overrides.csv'
             OutputRoot = Join-Path $TestDrive 'diag'
         }
@@ -211,7 +211,7 @@ Describe 'Diagnostics (spec 9.5)' {
 
     It 'contains no email, name, logon name, or price from the sample data' {
         $ad = Import-Csv $DiagSplat.Ad
-        $usage = Import-Csv (Join-Path (Split-Path $DiagSplat.Usage) 'usage.csv')
+        $usage = Import-Csv (Join-Path (Split-Path $DiagSplat.Usage) 'autodesk_usage_2027.csv')
         $secrets = @($ad.mail) + @($ad.displayName) + @($ad.sAMAccountName | Where-Object Length -ge 5) +
         @($usage.'Source Email') + @((Import-Csv $DiagSplat.Overrides) | ForEach-Object { $_.Key; $_.Manager; $_.LinkTo; $_.CostCenter }) + '48210.55', '48,210.55', '19333.33', '19,333.33', '7777.77', '7,777.77', '61777.77', '61,777.77'
         $leaks = @($secrets | Where-Object { $_ -and $Diag.Contains($_.Trim()) } | Select-Object -Unique)

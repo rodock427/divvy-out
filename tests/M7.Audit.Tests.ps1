@@ -3,8 +3,8 @@ BeforeAll {
     . $PSScriptRoot/TestHelpers.ps1
     $repo = Split-Path -Parent $PSScriptRoot
     $script:Splat = @{
-        Profile = Join-Path $repo 'config/profiles/autodesk.psd1'; Quote = Join-Path $repo 'config/quotes/2027-autodesk.psd1'
-        Usage = Join-Path $repo 'samples/usage.xlsx'; Ad = Join-Path $repo 'samples/ad-snapshot.csv'
+        Profile = Join-Path $repo 'config/profiles/autodesk_profile_2027.psd1'; Quote = Join-Path $repo 'config/quotes/autodesk_quote_2027.psd1'
+        Usage = Join-Path $repo 'samples/autodesk_usage_2027.xlsx'; Ad = Join-Path $repo 'samples/ad-snapshot.csv'
         Overrides = Join-Path $repo 'samples/overrides.csv'; OutputRoot = Join-Path $TestDrive 'first'
     }
     $script:R = Invoke-DivvyOut @Splat -PassThru 6>$null
@@ -92,7 +92,7 @@ Describe 'Manifest and input copies (spec 6, 9)' {
 
     It 'gives the same numbers when run again from the copies' {
         $in = Join-Path $R.OutputDir 'inputs'
-        $again = Invoke-DivvyOut -Profile (Join-Path $in 'autodesk.psd1') -Quote (Join-Path $in '2027-autodesk.psd1') -Usage (Join-Path $in 'usage.xlsx') `
+        $again = Invoke-DivvyOut -Profile (Join-Path $in 'autodesk_profile_2027.psd1') -Quote (Join-Path $in 'autodesk_quote_2027.psd1') -Usage (Join-Path $in 'autodesk_usage_2027.xlsx') `
             -Ad (Join-Path $in 'ad-snapshot.csv') -Overrides (Join-Path $in 'overrides.csv') -OutputRoot (Join-Path $TestDrive 'again') -PassThru 6>$null
         Get-Content (Join-Path $again.OutputDir 'summary-by-manager.csv') -Raw | Should -Be (Get-Content (Join-Path $R.OutputDir 'summary-by-manager.csv') -Raw)
         $a2 = @(Import-Csv (Join-Path $again.OutputDir 'audit.csv'))

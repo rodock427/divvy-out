@@ -2,7 +2,7 @@
 .SYNOPSIS
 One-command run for non-developers. Loads the module from this repo and runs Invoke-DivvyOut.
 .EXAMPLE
-./scripts/Invoke-DivvyOut.ps1 -Profile config/profiles/autodesk.psd1 -Quote inputs/2027-autodesk.psd1 -Usage inputs/usage.xlsx -Ad inputs/ad-snapshot.csv -Overrides inputs/overrides.csv
+./scripts/Invoke-DivvyOut.ps1 -Profile config/profiles/autodesk_profile_2027.psd1 -Quote inputs/autodesk_quote_2027.psd1 -Usage inputs/autodesk_usage_2027.xlsx -Ad inputs/ad-snapshot.csv -Overrides inputs/overrides.csv
 #>
 param(
     [Parameter(Mandatory)] [string]$Profile,

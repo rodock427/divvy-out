@@ -9,8 +9,8 @@ BeforeAll {
     }
     $repo = Split-Path -Parent $PSScriptRoot
     $s = @{
-        Profile = Join-Path $repo 'config/profiles/autodesk.psd1'; Quote = Join-Path $repo 'config/quotes/2027-autodesk.psd1'
-        Usage = Join-Path $repo 'samples/usage.csv'; Ad = Join-Path $repo 'samples/ad-snapshot.csv'
+        Profile = Join-Path $repo 'config/profiles/autodesk_profile_2027.psd1'; Quote = Join-Path $repo 'config/quotes/autodesk_quote_2027.psd1'
+        Usage = Join-Path $repo 'samples/autodesk_usage_2027.csv'; Ad = Join-Path $repo 'samples/ad-snapshot.csv'
         Overrides = Join-Path $repo 'samples/overrides.csv'; OutputRoot = Join-Path $TestDrive 'dash'
     }
     $script:R = Invoke-DivvyOut @s -PassThru 6>$null

@@ -17,8 +17,8 @@ You give it the vendor quote, the usage report, a directory export, and your man
 ## Try it on the fake sample data
 
 ```powershell
-./scripts/Invoke-DivvyOut.ps1 -Profile config/profiles/autodesk.psd1 -Quote config/quotes/2027-autodesk.psd1 `
-    -Usage samples/usage.xlsx -Ad samples/ad-snapshot.csv -Overrides samples/overrides.csv
+./scripts/Invoke-DivvyOut.ps1 -Profile config/profiles/autodesk_profile_2027.psd1 -Quote config/quotes/autodesk_quote_2027.psd1 `
+    -Usage samples/autodesk_usage_2027.xlsx -Ad samples/ad-snapshot.csv -Overrides samples/overrides.csv
 ```
 
 It prints the match report and the status, and writes everything to `output/<run-id>/`. The sample run is `DRAFT` on purpose (planted problems: see [samples/README.md](samples/README.md)).
@@ -27,22 +27,22 @@ It prints the match report and the status, and writes everything to `output/<run
 
 Keep real files in `inputs/`. Git ignores `inputs/` and `output/`. Never put real data anywhere else in this folder.
 
-1. **Profile.** Copy `config/profiles/autodesk.psd1` and set your real names: the usage report headers (`Usage.Columns`), the access option text, the match rules, and the directory attribute names (`Ad`). Nothing about your report or directory is in the code; it is all in the profile.
-2. **Quote.** Copy `config/quotes/2027-autodesk.psd1` to `inputs/` and enter the real prices. Write amounts as `12000`, `'12000.50'`, or `12000.50d` (a bare `12000.50` is rejected).
+1. **Profile.** Copy `config/profiles/autodesk_profile_2027.psd1` and set your real names: the usage report headers (`Usage.Columns`), the access option text, the match rules, and the directory attribute names (`Ad`). Nothing about your report or directory is in the code; it is all in the profile.
+2. **Quote.** Copy `config/quotes/autodesk_quote_2027.psd1` to `inputs/` and enter the real prices. Write amounts as `12000`, `'12000.50'`, or `12000.50d` (a bare `12000.50` is rejected).
 3. **Directory snapshot.**
    ```powershell
-   ./scripts/Export-AdUsers.ps1 -ProfilePath inputs/autodesk.psd1 -OutFile inputs/ad-snapshot.csv -Server dc1.corp.example
+   ./scripts/Export-AdUsers.ps1 -ProfilePath inputs/autodesk_profile_2027.psd1 -OutFile inputs/ad-snapshot.csv -Server dc1.corp.example
    ```
    Several domains: add one `-Server` per domain, or use `-UseGlobalCatalog`. The export has enabled and disabled users.
 4. **Check the inputs** (writes nothing, prints the match report and every problem):
    ```powershell
    Import-Module ./src/DivvyOut/DivvyOut.psd1
-   $check = Test-DivvyOutInput -Profile inputs/autodesk.psd1 -Quote inputs/2027-autodesk.psd1 -Usage inputs/usage.xlsx -Ad inputs/ad-snapshot.csv -Overrides inputs/overrides.csv
+   $check = Test-DivvyOutInput -Profile inputs/autodesk_profile_2027.psd1 -Quote inputs/autodesk_quote_2027.psd1 -Usage inputs/autodesk_usage_2027.xlsx -Ad inputs/ad-snapshot.csv -Overrides inputs/overrides.csv
    ```
 5. **Run.**
    ```powershell
-   ./scripts/Invoke-DivvyOut.ps1 -Profile inputs/autodesk.psd1 -Quote inputs/2027-autodesk.psd1 `
-       -Usage inputs/usage.xlsx -Ad inputs/ad-snapshot.csv -Overrides inputs/overrides.csv
+   ./scripts/Invoke-DivvyOut.ps1 -Profile inputs/autodesk_profile_2027.psd1 -Quote inputs/autodesk_quote_2027.psd1 `
+       -Usage inputs/autodesk_usage_2027.xlsx -Ad inputs/ad-snapshot.csv -Overrides inputs/overrides.csv
    ```
 6. **Fix and run again** until the status is `FINAL`: use `overrides-template.csv` from the run folder as the start of your `inputs/overrides.csv`.
 

@@ -12,9 +12,9 @@ Snapshots Active Directory users to a CSV for DivvyOut (spec Section 6).
 - Writes UTF-8 with BOM, sorted by Ad.IdAttribute, so the same directory gives the same file.
 
 .EXAMPLE
-./scripts/Export-AdUsers.ps1 -ProfilePath config/profiles/autodesk.psd1 -OutFile inputs/ad-snapshot.csv -Server dc1.corp.example
+./scripts/Export-AdUsers.ps1 -ProfilePath config/profiles/autodesk_profile_2027.psd1 -OutFile inputs/ad-snapshot.csv -Server dc1.corp.example
 .EXAMPLE
-./scripts/Export-AdUsers.ps1 -ProfilePath config/profiles/autodesk.psd1 -OutFile inputs/ad-snapshot.csv -UseGlobalCatalog
+./scripts/Export-AdUsers.ps1 -ProfilePath config/profiles/autodesk_profile_2027.psd1 -OutFile inputs/ad-snapshot.csv -UseGlobalCatalog
 Several domains: use -UseGlobalCatalog, or list one -Server per domain. Some custom attributes are not in the
 Global Catalog. If a column comes back blank, query each domain with -Server instead.
 #>

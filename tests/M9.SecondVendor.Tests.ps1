@@ -3,8 +3,8 @@ BeforeAll {
     . $PSScriptRoot/TestHelpers.ps1
     $repo = Split-Path -Parent $PSScriptRoot
     $s = @{
-        Profile = Join-Path $repo 'config/profiles/example-vendor.psd1'; Quote = Join-Path $repo 'config/quotes/2027-example-vendor.psd1'
-        Usage = Join-Path $repo 'samples/example-vendor/usage.csv'; Ad = Join-Path $repo 'samples/example-vendor/hr-directory.csv'
+        Profile = Join-Path $repo 'config/profiles/example-vendor_profile_2027.psd1'; Quote = Join-Path $repo 'config/quotes/example-vendor_quote_2027.psd1'
+        Usage = Join-Path $repo 'samples/example-vendor/example-vendor_usage_2027.csv'; Ad = Join-Path $repo 'samples/example-vendor/hr-directory.csv'
         OutputRoot = Join-Path $TestDrive 'ev'
     }
     $script:R = Invoke-DivvyOut @s -PassThru 6>$null
@@ -46,9 +46,9 @@ Describe 'Second vendor: ExampleVendor (spec M9)' {
     }
 
     It 'rejects an access text that this vendor does not know' {
-        $p = Import-PowerShellDataFile (Join-Path $repo 'config/profiles/example-vendor.psd1')
+        $p = Import-PowerShellDataFile (Join-Path $repo 'config/profiles/example-vendor_profile_2027.psd1')
         $p.Usage.AccessOptionValues = @{ Token = 'Named User' }
-        $x = Test-DivvyOutInput -Profile $p -Quote (Join-Path $repo 'config/quotes/2027-example-vendor.psd1') -Usage (Join-Path $repo 'samples/example-vendor/usage.csv') -Ad (Join-Path $repo 'samples/example-vendor/hr-directory.csv') 6>$null
+        $x = Test-DivvyOutInput -Profile $p -Quote (Join-Path $repo 'config/quotes/example-vendor_quote_2027.psd1') -Usage (Join-Path $repo 'samples/example-vendor/example-vendor_usage_2027.csv') -Ad (Join-Path $repo 'samples/example-vendor/hr-directory.csv') 6>$null
         ($x.Issues | Where-Object Code -eq 'ProfileInvalid').Message | Should -Match "not an access kind of vendor 'ExampleVendor'"
     }
 }
