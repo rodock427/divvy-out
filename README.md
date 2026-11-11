@@ -35,7 +35,7 @@ Keep real files in `inputs/`. Git ignores `inputs/` and `output/`. Never put rea
    ```
    Several domains: add one `-Server` per domain. The export has enabled and disabled users, and shows progress as it reads.
 
-   Avoid `-UseGlobalCatalog` unless you need it. The Global Catalog leaves out many attributes (for example `departmentNumber` and most custom ones), so those columns come back blank, with no error. Before you run, open the snapshot and check that every column the profile names has values. `diagnostics.txt` also counts blank cost centers and blank manager info.
+   Avoid `-UseGlobalCatalog` unless you need it. The Global Catalog does not hold every attribute, so some columns can come back blank, with no error. Before you run, open the snapshot and check that every column the profile names has values. `diagnostics.txt` also counts blank cost centers and blank manager info.
 4. **Check the inputs** (writes nothing, prints the match report and every problem):
    ```powershell
    Import-Module ./src/DivvyOut/DivvyOut.psd1
