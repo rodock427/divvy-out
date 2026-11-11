@@ -109,6 +109,13 @@ Describe 'Profile and input validation (spec 5.5)' {
         $r.Rows[2].PackageRaw | Should -Be 'Offering 1 (Old)'
     }
 
+    It 'accepts token rows on an offering not in the quote (one token pool)' {
+        $u = @($script:Usage) + @(New-TestUsageRow 'ann@test.example' 'Offering Not Bought' 'Tokens' 500)
+        $r = Test-Input -UsageRows $u
+        Get-Codes $r | Should -BeNullOrEmpty
+        $r.Rows[2].Package | Should -Be 'Offering Not Bought'
+    }
+
     It 'matches the quote offering name regardless of case' {
         $u = @(New-TestUsageRow 'ann@test.example' 'OFFERING ONE' 'Seats')
         $r = Test-Input -UsageRows $u
