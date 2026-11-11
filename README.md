@@ -27,7 +27,7 @@ It prints the match report and the status, and writes everything to `output/<run
 
 Keep real files in `inputs/`. Git ignores `inputs/` and `output/`. Never put real data anywhere else in this folder.
 
-1. **Profile.** Copy `config/profiles/autodesk_profile_2027.psd1` and set your real names: the usage report headers (`Usage.Columns`), the access option text, the match rules, and the directory attribute names (`Ad`). Nothing about your report or directory is in the code; it is all in the profile.
+1. **Profile.** Copy `config/profiles/autodesk_profile_2027.psd1` and set your real names: the usage report headers (`Usage.Columns`), the access option text, the match rules, and the directory attribute names (`Ad`). Nothing about your report or directory is in the code; it is all in the profile. Optional: `Ad.ManagerInfo` adds directory attributes of each manager (for example a region) to the summary, statements, roll-ups, and dashboard.
 2. **Quote.** Copy `config/quotes/autodesk_quote_2027.psd1` to `inputs/` and enter the real prices. Write amounts as `12000`, `'12000.50'`, or `12000.50d` (a bare `12000.50` is rejected).
 3. **Directory snapshot.**
    ```powershell

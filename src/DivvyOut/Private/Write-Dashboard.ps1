@@ -20,6 +20,7 @@ function Write-Dashboard {
             key = $n.Key; name = $n.Name; direct = Format-Money $n.DirectTotal; team = Format-Money $n.TeamTotal
             people = if ($n.Direct) { $n.Direct.People.Count } else { 0 }
             rows = @(if ($n.Direct) { & $idxOf $n.Direct.Rows })
+            info = @((Get-ManagerInfo $Result $n.Id).Values)
         }
     }
 
@@ -83,6 +84,7 @@ function Write-Dashboard {
             notFound  = @($notHere | ForEach-Object { & $personKey $_ } | Sort-Object -Unique).Count
         }
         split       = [ordered]@{ seat = Format-Money $seat; token = Format-Money $token }
+        managerInfo = @($Result.Config.Ad.ManagerInfo | ForEach-Object Label)
         managers    = @($managers)
         attention   = @($attention)
         offerings   = @($offerings)

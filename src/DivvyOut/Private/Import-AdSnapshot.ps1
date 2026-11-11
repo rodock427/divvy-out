@@ -20,6 +20,7 @@ function Import-AdSnapshot {
     $add = { param([string]$attr, [string]$key) if ($attr) { if (-not $need.Contains($attr)) { $need[$attr] = @() }; $need[$attr] += $key } }
     foreach ($k in 'IdAttribute', 'EnabledColumn', 'ManagerAttribute', 'ManagerKeyAttribute', 'DisplayAttribute') { & $add $ad[$k] "Ad.$k" }
     if ($ad.CostCenter) { & $add $ad.CostCenter.Attribute 'Ad.CostCenter.Attribute' }
+    foreach ($mi in $ad.ManagerInfo) { & $add $mi.Attribute 'Ad.ManagerInfo' }
     foreach ($a in $ad.Attributes) { & $add $a 'Ad.Attributes' }
     foreach ($r in $Config.Match.Rules) { & $add $r.AdAttribute "Match.Rules[$($r.Number)].AdAttribute" }
     foreach ($r in $Config.Overrides.KeyRules) { & $add $r.AdAttribute "Overrides.KeyRules[$($r.Number)].AdAttribute" }

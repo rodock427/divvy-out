@@ -46,6 +46,9 @@
         ManagerKeyAttribute = 'distinguishedName'   # the manager's column that ManagerAttribute holds (AD: a DN)
         ManagerColumns      = 'objectGUID', 'mail', 'displayName'   # Export-AdUsers adds manager_<name> columns (info only)
         CostCenter          = @{ Attribute = 'costCenter'; Replace = @( @{ From = ','; To = '-' } ) }   # optional; delete to hide
+        # Optional: extra manager columns in the summary, statements, roll-ups and dashboard, from each manager's own record.
+        # Each Attribute must also be in Attributes. Order is kept.
+        # ManagerInfo       = @( @{ Label = 'Region'; Attribute = 'extensionAttribute5' }, @{ Label = 'Site'; Attribute = 'physicalDeliveryOfficeName' } )
     }
 
     Charge = @{

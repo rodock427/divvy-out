@@ -179,7 +179,9 @@
     items.forEach(function (it) {
       var row = el('div', 'bar-row' + (it.click ? ' click' : ''));
       row.title = it.title;
-      row.appendChild(el('div', 'name', it.label));
+      var name = el('div', 'name', it.label);
+      if (it.sub) name.appendChild(el('div', 'sub', it.sub));
+      row.appendChild(name);
       var tr = el('div', 'track');
       it.segs.forEach(function (s) {
         if (v(s.value) <= 0) return;
@@ -196,17 +198,20 @@
   // Managers list
   var state = { sort: 'charge', view: 'direct', all: false, q: '' };
   function value(m) { return state.view === 'team' ? m.team : m.direct; }
+  // Ad.ManagerInfo: 'Region: West · Site: HQ' (blank values left out).
+  function infoText(m) { return D.managerInfo.map(function (l, i) { return m.info[i] ? l + ': ' + m.info[i] : ''; }).filter(Boolean).join(' · '); }
   function drawManagers() {
     var list = D.managers.filter(function (m) { return state.view === 'team' || v(m.direct) > 0 || m.rows.length; });
-    if (state.q) { var q = state.q.toLowerCase(); list = list.filter(function (m) { return m.name.toLowerCase().indexOf(q) >= 0; }); }
+    if (state.q) { var q = state.q.toLowerCase(); list = list.filter(function (m) { return (m.name + '\n' + m.info.join('\n')).toLowerCase().indexOf(q) >= 0; }); }
     list.sort(state.sort === 'name' ? function (a, b) { return a.name.localeCompare(b.name) || a.key.localeCompare(b.key); }
                                     : function (a, b) { return v(value(b)) - v(value(a)) || a.name.localeCompare(b.name); });
     var total = list.length, shown = (state.all || state.q) ? list : list.slice(0, 6);
     var max = Math.max.apply(null, shown.map(function (m) { return v(value(m)); }).concat([0]));
     bars($('managers'), shown.map(function (m) {
-      return { label: m.name, segs: [{ value: value(m), cls: 's1' }], right: money(value(m)),
-               title: m.name + ': ' + money(value(m)) + (state.view === 'team' ? ' with teams below (direct ' + money(m.direct) + ')' : ' direct') + ' · ' + plural(m.people, 'person', 'people'),
-               click: m.rows.length ? function () { showRows(m.name, m.rows, (state.view === 'team' ? 'Direct reports only. ' : '') + plural(m.rows.length, 'row', 'rows') + '.'); } : null };
+      var info = infoText(m);
+      return { label: m.name, sub: info, segs: [{ value: value(m), cls: 's1' }], right: money(value(m)),
+               title: m.name + (info ? ' (' + info + ')' : '') + ': ' + money(value(m)) + (state.view === 'team' ? ' with teams below (direct ' + money(m.direct) + ')' : ' direct') + ' · ' + plural(m.people, 'person', 'people'),
+               click: m.rows.length ? function () { showRows(m.name + (info ? ' · ' + info : ''), m.rows, (state.view === 'team' ? 'Direct reports only. ' : '') + plural(m.rows.length, 'row', 'rows') + '.'); } : null };
     }), max);
     $('mgr-note').textContent = (state.q ? shown.length + ' of ' + total + ' managers match' : 'Top ' + shown.length + ' of ' + total) +
       (state.view === 'team' ? '. With teams below counts a manager’s whole team, so these do not add up to the total.' : '. Direct charge: each manager’s own direct reports.');

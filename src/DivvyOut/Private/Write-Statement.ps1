@@ -94,7 +94,7 @@ function Set-XlPage {
 
 # Header block: name + status chip, subtitle, draft/unrecovered lines, big total, count line. Returns the next free row.
 function Write-XlHeader {
-    param($Ws, $Result, [string]$Title, [string]$Subtitle, [decimal]$Total, [string]$CountLine, [int]$Width)
+    param($Ws, $Result, [string]$Title, [string]$Subtitle, [decimal]$Total, [string]$CountLine, [int]$Width, [string]$InfoLine)
     Set-XlText $Ws.Cells[1, 1] $Title -Size 16 -Bold
     $chip = $Ws.Cells[1, $Width]
     $final = $Result.Status -eq 'FINAL'
@@ -104,6 +104,7 @@ function Write-XlHeader {
     $chip.Style.HorizontalAlignment = [OfficeOpenXml.Style.ExcelHorizontalAlignment]::Center
     Set-XlText $Ws.Cells[2, 1] $Subtitle -Color 'Text2'
     $r = 3
+    if ($InfoLine) { Set-XlText $Ws.Cells[$r, 1] $InfoLine -Color 'Text2'; $r++ }
     if (-not $final) { Set-XlText $Ws.Cells[$r, 1] ('Draft: ' + ($Result.DraftReasons -join '; ') + '. Numbers may change.') -Color 'Text2'; $r++ }
     $un = $Result.Reconciliation.Unrecovered
     if ($un -gt 0) { Set-XlText $Ws.Cells[$r, 1] ('Not recovered: ' + $un.ToString('$#,##0.00', [cultureinfo]::InvariantCulture) + ' has a price but nobody to charge.') -Color 'Text2'; $r++ }
@@ -277,12 +278,12 @@ function Get-CountLine {
 }
 
 function Save-StatementFile {
-    param([string]$Path, $Result, [string]$Title, [object[]]$Rows, [switch]$NoOwner)
+    param([string]$Path, $Result, [string]$Title, [object[]]$Rows, [switch]$NoOwner, [string]$ManagerId)
     $pkg = [OfficeOpenXml.ExcelPackage]::new()
     $ws = Add-Worksheet -ExcelPackage $pkg -WorksheetName 'Statement'
     $total = [decimal]0; foreach ($r in $Rows) { $total += $r.RowTotal }
     $width = 7 + [int]$Result.Config.Usage.Columns.Contains('Team') + [int][bool]$Result.Config.Ad.CostCenter + [int][bool]$NoOwner
-    $next = Write-XlHeader $ws $Result $Title (Get-Subtitle $Result $(if ($NoOwner) { 'for the owner only' })) $total (Get-CountLine $Rows) $width
+    $next = Write-XlHeader $ws $Result $Title (Get-Subtitle $Result $(if ($NoOwner) { 'for the owner only' })) $total (Get-CountLine $Rows) $width (Format-ManagerInfo (Get-ManagerInfo $Result $ManagerId))
     if (-not $Rows.Count -and $NoOwner) { Set-XlText $ws.Cells[$next, 1] 'Every charged row has an owner.' -Color 'Text2'; $next += 2 }
     [void](Write-XlStatementTable $ws $next $Rows $Result -WithReason:$NoOwner -Freeze)
     Set-XlPage $ws
@@ -312,9 +313,11 @@ function Save-RollupFile {
     $pkg = [OfficeOpenXml.ExcelPackage]::new()
     $ws = Add-Worksheet -ExcelPackage $pkg -WorksheetName 'Summary'
     $count = '{0} manager{1} below you · {2} people' -f $below.Count, $(if ($below.Count -eq 1) { '' } else { 's' }), $people.Count
-    $row = Write-XlHeader $ws $Result $Node.Name (Get-Subtitle $Result 'Roll-up') $team $count 4
-    $heads = 'Manager', 'People', 'Direct charge', 'With teams below'
-    for ($c = 1; $c -le 4; $c++) {
+    $row = Write-XlHeader $ws $Result $Node.Name (Get-Subtitle $Result 'Roll-up') $team $count 4 (Format-ManagerInfo (Get-ManagerInfo $Result $Node.Id))
+    $infoCols = @($Result.Config.Ad.ManagerInfo | ForEach-Object Label)
+    $heads = @('Manager', 'People', 'Direct charge', 'With teams below') + $infoCols
+    $cols = $heads.Count
+    for ($c = 1; $c -le $cols; $c++) {
         $cell = $ws.Cells[$row, $c]
         Set-XlText $cell $heads[$c - 1] -Bold
         if ($c -gt 1) { $cell.Style.HorizontalAlignment = [OfficeOpenXml.Style.ExcelHorizontalAlignment]::Right }
@@ -322,6 +325,7 @@ function Save-RollupFile {
         $cell.Style.Border.Bottom.Color.SetColor((Get-XlColor 'Text2'))
     }
     $ws.Column(1).Width = 34; $ws.Column(2).Width = 10; $ws.Column(3).Width = 16; $ws.Column(4).Width = 18
+    for ($c = 5; $c -le $cols; $c++) { $ws.Column($c).Width = 18 }
     $ws.View.FreezePanes($row + 1, 1)
     $sumPeople = 0; $sumDirect = [decimal]0
     foreach ($s in $sub) {
@@ -334,7 +338,9 @@ function Save-RollupFile {
         Set-XlMoney $ws.Cells[$row, 3] $n.DirectTotal
         $t = if ($s.Level -eq 0) { $n.DirectTotal } else { Get-TeamTotal $n $(if ($depth -eq 0) { -1 } else { $depth - $s.Level }) }
         Set-XlMoney $ws.Cells[$row, 4] $t
-        for ($c = 1; $c -le 4; $c++) {
+        $info = Get-ManagerInfo $Result $n.Id
+        for ($i = 0; $i -lt $infoCols.Count; $i++) { Set-XlText $ws.Cells[$row, (5 + $i)] $info[$infoCols[$i]] }
+        for ($c = 1; $c -le $cols; $c++) {
             $ws.Cells[$row, $c].Style.Border.Bottom.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Hair
             $ws.Cells[$row, $c].Style.Border.Bottom.Color.SetColor((Get-XlColor 'Hairline'))
         }
@@ -344,7 +350,7 @@ function Save-RollupFile {
     Set-XlText $ws.Cells[$row, 1] 'Total' -Bold
     $ws.Cells[$row, 2].Value = $sumPeople; $ws.Cells[$row, 2].Style.Font.Bold = $true
     Set-XlMoney $ws.Cells[$row, 3] $sumDirect; $ws.Cells[$row, 3].Style.Font.Bold = $true
-    for ($c = 1; $c -le 4; $c++) { $ws.Cells[$row, $c].Style.Border.Top.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Thin }
+    for ($c = 1; $c -le $cols; $c++) { $ws.Cells[$row, $c].Style.Border.Top.Style = [OfficeOpenXml.Style.ExcelBorderStyle]::Thin }
     $row += 2
     Set-XlText $ws.Cells[$row, 1] 'The total adds the Direct charge column only. "With teams below" includes the managers beneath, so adding it would count people twice.' -Color 'Text2'
     $row++
@@ -362,6 +368,7 @@ function Save-RollupFile {
         $sh = Add-Worksheet -ExcelPackage $pkg -WorksheetName $name
         Set-XlText $sh.Cells[1, 1] $n.Name -Size 14 -Bold
         Set-XlText $sh.Cells[2, 1] (Get-CountLine $n.Direct.Rows) -Color 'Text2'
+        Set-XlText $sh.Cells[3, 1] (Format-ManagerInfo (Get-ManagerInfo $Result $n.Id)) -Color 'Text2'
         [void](Write-XlStatementTable $sh 4 $n.Direct.Rows.ToArray() $Result -Freeze)
         Set-XlPage $sh
     }
@@ -382,7 +389,7 @@ function Write-Statement {
         $groups = @(Get-ManagerSummary $Result)
         $managers = @($groups | Where-Object Key -ne '~NO OWNER')
         $names = Get-UniqueFileName $managers
-        foreach ($g in $managers) { Save-StatementFile (Join-Path $stDir "$($names[$g.Key]).xlsx") $Result $g.Name $g.Rows.ToArray() }
+        foreach ($g in $managers) { Save-StatementFile (Join-Path $stDir "$($names[$g.Key]).xlsx") $Result $g.Name $g.Rows.ToArray() -ManagerId $g.Id }
         $noOwner = @($groups | Where-Object Key -eq '~NO OWNER' | ForEach-Object { $_.Rows })
         Save-StatementFile (Join-Path $stDir 'NO-OWNER.xlsx') $Result 'NO OWNER' $noOwner -NoOwner
     }

@@ -26,18 +26,41 @@ function Get-ManagerSummary {
     @($sorted) + @($groups.Values | Where-Object Key -eq '~NO OWNER')
 }
 
+# Ad.ManagerInfo values for one manager, from the manager's own directory record: ordered Label -> text.
+# Blank when the manager has no directory record (free-text override manager, NO OWNER).
+function Get-ManagerInfo {
+    param([Parameter(Mandatory)] $Result, [string]$Id)
+    $out = [ordered]@{}
+    $user = $null
+    $found = $Id -and $Result.Directory.ById -and $Result.Directory.ById.TryGetValue($Id, [ref]$user)
+    foreach ($mi in $Result.Config.Ad.ManagerInfo) { $out[$mi.Label] = if ($found) { ([string]$user.Record.($mi.Attribute)).Trim() } else { '' } }
+    $out
+}
+
+# 'Region: West · Site: HQ' (blank values left out). Empty text when there is nothing to show.
+function Format-ManagerInfo {
+    param($Info)
+    (@($Info.Keys | Where-Object { $Info[$_] } | ForEach-Object { "${_}: $($Info[$_])" }) -join ' · ')
+}
+
 function Write-Summary {
     param([Parameter(Mandatory)] $Result, [Parameter(Mandatory)] [string]$Path)
+    $infoCols = @($Result.Config.Ad.ManagerInfo | ForEach-Object Label)
     $lines = foreach ($g in Get-ManagerSummary $Result) {
-        [ordered]@{
-            Status = $Result.Status; Manager = $g.Name; ManagerId = $g.Id; People = $g.People.Count; Rows = $g.Rows.Count
-            SeatTotal = Format-Money $g.Seat; TokenTotal = Format-Money $g.Token; Total = Format-Money $g.Total
-        }
+        $line = [ordered]@{ Status = $Result.Status; Manager = $g.Name; ManagerId = $g.Id }
+        $info = Get-ManagerInfo $Result $g.Id
+        foreach ($c in $infoCols) { $line[$c] = $info[$c] }
+        $line.People = $g.People.Count; $line.Rows = $g.Rows.Count
+        $line.SeatTotal = Format-Money $g.Seat; $line.TokenTotal = Format-Money $g.Token; $line.Total = Format-Money $g.Total
+        $line
     }
     $un = $Result.Reconciliation.Unrecovered
     if ($un -gt 0) {
-        $lines = @($lines) + [ordered]@{ Status = $Result.Status; Manager = 'UNRECOVERED (nobody to charge)'; ManagerId = ''; People = 0; Rows = 0
-            SeatTotal = ''; TokenTotal = ''; Total = Format-Money $un }
+        $line = [ordered]@{ Status = $Result.Status; Manager = 'UNRECOVERED (nobody to charge)'; ManagerId = '' }
+        foreach ($c in $infoCols) { $line[$c] = '' }
+        $line.People = 0; $line.Rows = 0; $line.SeatTotal = ''; $line.TokenTotal = ''; $line.Total = Format-Money $un
+        $lines = @($lines) + $line
     }
-    Export-DivvyCsv -Path $Path -Columns 'Status', 'Manager', 'ManagerId', 'People', 'Rows', 'SeatTotal', 'TokenTotal', 'Total' -Rows @($lines)
+    $columns = @('Status', 'Manager', 'ManagerId') + $infoCols + @('People', 'Rows', 'SeatTotal', 'TokenTotal', 'Total')
+    Export-DivvyCsv -Path $Path -Columns $columns -Rows @($lines)
 }

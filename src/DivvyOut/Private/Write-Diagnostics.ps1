@@ -50,6 +50,16 @@ function Write-Diagnostics {
             }
             $a = $c.Ad
             & $w "  Directory: Id=$($a.IdAttribute) Enabled=$($a.EnabledColumn)='$($a.EnabledValue)' Manager=$($a.ManagerAttribute) (refers to $($a.ManagerKeyAttribute)) Display=$($a.DisplayAttribute) CostCenter=$(if ($a.CostCenter) { $a.CostCenter.Attribute } else { '(none)' })"
+            # Blank counts only, never values: a blank column usually means the export did not get the attribute.
+            $charged = @($Result.Rows | Where-Object { $_.State -and $_.State -ne 'NotHere' })
+            if ($a.CostCenter -and $charged.Count) {
+                & $w "  Cost center blank on $(@($charged | Where-Object { -not $_.CostCenter }).Count) of $($charged.Count) charged rows"
+            }
+            $mgrIds = @(if ($Result.Contains('OrgTree') -and $Result.OrgTree) { $Result.OrgTree.Nodes.Values | Where-Object Id | ForEach-Object Id })
+            foreach ($mi in $a.ManagerInfo) {
+                $blank = @($mgrIds | Where-Object { -not (Get-ManagerInfo $Result $_)[$mi.Label] }).Count
+                & $w "  Manager info '$($mi.Label)' = $($mi.Attribute)$(if ($mgrIds.Count) { ": blank for $blank of $($mgrIds.Count) managers" })"
+            }
             & $w '  Override key rules:'
             foreach ($r in $c.Overrides.KeyRules) {
                 $src = if ($r.UsageField) { "usage $($r.UsageField)" } else { "directory $($r.AdAttribute)" }

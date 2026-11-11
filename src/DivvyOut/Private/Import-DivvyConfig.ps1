@@ -114,7 +114,19 @@ function Import-DivvyProfile {
         Attributes          = @(Get-Setting $a 'Attributes' @() | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
         ManagerColumns      = @(Get-Setting $a 'ManagerColumns' @() | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
         CostCenter          = $null
+        ManagerInfo         = @()
     }
+    # Extra manager columns for the summary, statements, roll-ups and dashboard (DECISIONS D83). An array keeps the order.
+    $labels = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($col in 'Status', 'Manager', 'ManagerId', 'People', 'Rows', 'SeatTotal', 'TokenTotal', 'Total') { [void]$labels.Add($col) }
+    $ad.ManagerInfo = @(foreach ($mi in @(Get-Setting $a 'ManagerInfo' @())) {
+            if ($mi -isnot [System.Collections.IDictionary]) { & $err 'Profile key Ad.ManagerInfo items must be @{ Label = ...; Attribute = ... }.'; continue }
+            $label = & $str $mi 'Label' 'Ad.ManagerInfo.Label'
+            $attr = & $str $mi 'Attribute' 'Ad.ManagerInfo.Attribute'
+            if (-not $label -or -not $attr) { continue }
+            if (-not $labels.Add($label.Trim())) { & $err "Profile key Ad.ManagerInfo: label '$($label.Trim())' is used twice or clashes with a summary column."; continue }
+            @{ Label = $label.Trim(); Attribute = $attr.Trim() }
+        })
     $cc = Get-Setting $a 'CostCenter' $null
     if ($null -ne $cc) {
         if ($cc -isnot [System.Collections.IDictionary]) { & $err 'Profile key Ad.CostCenter must be a @{ } table.' }
