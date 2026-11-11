@@ -31,11 +31,14 @@ function Invoke-DivvyOut {
         foreach ($line in $result.MatchReport.Lines) { Write-Host "  $line" }
         Invoke-Allocation -Result $result
         Set-RunStatus -Result $result
+        [void](Get-OrgTree -Result $result)
+        Assert-RollupCheck -Result $result
         # Writers: each takes the result object only (spec 9).
         Write-Summary -Result $result -Path (Join-Path $runDir 'summary-by-manager.csv')
         Write-NotFound -Result $result -Path (Join-Path $runDir 'not-found.csv')
         Write-OverridesTemplate -Result $result -Path (Join-Path $runDir 'overrides-template.csv')
         Write-Exceptions -Result $result -Path (Join-Path $runDir 'exceptions.csv')
+        Write-Statement -Result $result -Dir $runDir
     }
     catch {
         $result.Status = 'FAILED'

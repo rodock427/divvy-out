@@ -22,7 +22,7 @@ function Get-ManagerSummary {
         $g.Seat += $row.SeatCharge; $g.Token += $row.TokenCharge; $g.Total += $row.RowTotal
     }
     $managers = @($groups.Values | Where-Object Key -ne '~NO OWNER')
-    $sorted = @(Get-SortedByKey $managers { param($g) "$($g.Name)|$($g.Id)" })
+    $sorted = @(Get-SortedByKey $managers { param($g) "$($g.Name)`0$($g.Id)" })
     @($sorted) + @($groups.Values | Where-Object Key -eq '~NO OWNER')
 }
 

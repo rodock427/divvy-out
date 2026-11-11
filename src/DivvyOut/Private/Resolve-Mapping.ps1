@@ -50,7 +50,7 @@ function Get-RowSortKey {
     param($Row, $Result)
     $first = [string]$Row.Fields[$Result.Config.Match.Rules[0].UsageField]
     $id = if ($Row.User) { $Row.User.Id } else { '' }
-    '{0}|{1}|{2}|{3:D9}' -f $Row.Package, $id, $first.Trim().ToLowerInvariant(), $Row.RowNumber
+    "{0}`0{1}`0{2}`0{3:D9}" -f $Row.Package, $id, $first.Trim().ToLowerInvariant(), $Row.RowNumber
 }
 
 function Resolve-Mapping {

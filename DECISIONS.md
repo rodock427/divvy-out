@@ -65,3 +65,17 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D49. `exceptions.csv`** has one line per row per issue (all levels), with a `File` column saying which file the row number points into (`usage`, `overrides`, `directory`).
 - **D50. CSV formula escaping** also covers text starting with a tab or carriage return (OWASP list), besides `= + - @`.
 - **D51. Outputs on a failed run**: only `diagnostics.txt` (FR-12). Reports are written only after the money reconciles.
+
+## Statements and roll-ups (M6)
+
+- **D52. Tree parent.** A person's manager in the tree is the override `Manager` from any override that was used for them (directory-key, tree-only, or applied to their rows), else the directory manager. Disabled managers are skipped (spec 8).
+- **D53. Loops.** The people in the loop keep their own statements, get no roll-up, and sit under nobody. People below a loop become top level. One `ManagerLoop` warning lists the loop's charged rows.
+- **D54. A free-text override manager** is a top-level node (not in the directory, so no manager above).
+- **D55. Who gets files.** A statement for every charge owner with charged rows (loop members and free-text managers included). A manager with no direct charges gets no statement, only a roll-up if someone is beneath. `NO-OWNER.xlsx` is always written (it says so when empty). A file name that clashes with `NO-OWNER` gets a short ID.
+- **D56. `Rollup.MaxTabs`** counts every sheet, the Summary included. Sheets go depth first; the rest are listed on the Summary only, with a note.
+- **D57. `Rollup.Depth`** limits levels below the top manager (1 = direct sub-managers only). "With teams below" counts only the levels shown.
+- **D58. Roll-up Summary.** First row is "<name> (direct)", whose "With teams below" is its own direct charge (as in the mockup). The Total row adds People and Direct charge only (spec text; the mockup shows the total in the last column).
+- **D59. Statement table** has the spec 9.1 columns (seat charge, tokens, token charge, row total, cost center), with the mockup's look. No stacked bar: text only (ImportExcel does not make it easy).
+- **D60. Name sort keys** (managers, people, rounding ties) join parts with a NUL character, so "mgr" sorts before "mgr2". Still ordinal and deterministic.
+- **D61. File and sheet names** follow Windows and Excel rules in code (not the build OS): invalid characters become `_`, reserved names (CON, LPT1, ...) get a leading `_`, 100-character file names, 31-character sheet names, case-insensitive uniqueness with a 6-hex ID from the manager's key.
+- **D62. Roll-up checks** (spec 8) run on every run before any report is written; a failure stops the run as an internal error.

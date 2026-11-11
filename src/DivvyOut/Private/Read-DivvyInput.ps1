@@ -21,6 +21,7 @@ function New-DivvyResult {
         MatchReport    = $null
         Pools          = @()
         Reconciliation = $null
+        OrgTree        = $null
         Status         = 'STARTED'
         DraftReasons   = [System.Collections.Generic.List[string]]::new()
         Fatal          = $null
