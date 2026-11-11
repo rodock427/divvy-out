@@ -174,6 +174,9 @@ function Import-DivvyProfile {
     $charge = Get-Setting $p 'Charge' @{}
     $policy = Get-Setting $p 'Policy' @{}
     $rollup = Get-Setting $p 'Rollup' @{}
+    # Dashboard: flag a token user when their token cost on an offering reaches this % of one seat (D84).
+    $seatPct = ConvertTo-Quantity (Get-Setting (Get-Setting $p 'Dashboard' @{}) 'SeatCandidatePercent' 100)
+    if ($null -eq $seatPct -or $seatPct -le 0) { & $err 'Profile key Dashboard.SeatCandidatePercent must be a number above 0.'; $seatPct = [decimal]100 }
     [ordered]@{
         Vendor    = $vendor
         Rule      = $rule
@@ -193,6 +196,7 @@ function Import-DivvyProfile {
             DuplicateSeatRows   = & $oneOf $policy 'DuplicateSeatRows' 'Policy.DuplicateSeatRows' 'ChargeEach', 'ChargeOnce'
             BadOverride         = & $oneOf $policy 'BadOverride' 'Policy.BadOverride' 'Draft', 'Warn'
         }
+        Dashboard = [ordered]@{ SeatCandidatePercent = $seatPct }
         Rollup    = [ordered]@{
             Enabled = [bool](Get-Setting $rollup 'Enabled' $true); Depth = [int](Get-Setting $rollup 'Depth' 0); MaxTabs = [int](Get-Setting $rollup 'MaxTabs' 50)
         }
@@ -228,11 +232,34 @@ function Import-DivvyQuote {
         $token = ConvertTo-Money $q.TokenPoolPrice
         if ($null -eq $token) { & $err "Quote TokenPoolPrice is not a valid amount. $moneyHint" }
     }
+    # Report only (D84): what was bought, for the dashboard's seat vs token comparison. Never used for charges.
+    $counts = [System.Collections.Generic.Dictionary[string, decimal]]::new([StringComparer]::OrdinalIgnoreCase)
+    $sc = Get-Setting $q 'SeatCounts' $null
+    if ($null -ne $sc) {
+        if ($sc -isnot [System.Collections.IDictionary]) { & $err 'Quote SeatCounts must be a @{ } table.' }
+        else {
+            foreach ($k in Get-OrdinalSorted @($sc.Keys)) {
+                $name = ([string]$k).Trim()
+                $n = ConvertTo-Quantity $sc[$k]
+                if ($null -eq $n -or $n -le 0 -or $n -ne [Math]::Floor($n)) { & $err "Quote SeatCounts['$name'] must be a whole number above 0."; continue }
+                if (-not $prices.ContainsKey($name)) { & $err "Quote SeatCounts lists '$name', which is not in SeatPrices."; continue }
+                $counts[$names[$name]] = $n
+            }
+        }
+    }
+    $bought = $null
+    if ($q.Contains('TokensPurchased')) {
+        $bought = ConvertTo-Quantity $q.TokensPurchased
+        if ($null -eq $bought -or $bought -le 0) { & $err 'Quote TokensPurchased must be a number above 0 (digits only, no commas).'; $bought = $null }
+        elseif ($null -eq $token) { & $err 'Quote TokensPurchased needs TokenPoolPrice.' }
+    }
     [ordered]@{
-        Period         = [string](Get-Setting $q 'Period' '')
-        Currency       = $currency.Trim()
-        SeatPrices     = $prices
-        OfferingNames  = $names
-        TokenPoolPrice = $token
+        Period          = [string](Get-Setting $q 'Period' '')
+        Currency        = $currency.Trim()
+        SeatPrices      = $prices
+        OfferingNames   = $names
+        TokenPoolPrice  = $token
+        SeatCounts      = $counts
+        TokensPurchased = $bought
     }
 }

@@ -61,6 +61,10 @@
         BadOverride         = 'Draft'         # override that finds nobody / several people: 'Draft' or 'Warn'
     }
 
+    Dashboard = @{
+        SeatCandidatePercent = 100   # flag a token user when their token cost on an offering reaches this % of one seat
+    }
+
     Rollup = @{
         Enabled = $true
         Depth   = 0       # 0 = all levels

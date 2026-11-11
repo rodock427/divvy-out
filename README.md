@@ -28,7 +28,7 @@ It prints the match report and the status, and writes everything to `output/<run
 Keep real files in `inputs/`. Git ignores `inputs/` and `output/`. Never put real data anywhere else in this folder.
 
 1. **Profile.** Copy `config/profiles/autodesk_profile_2027.psd1` and set your real names: the usage report headers (`Usage.Columns`), the access option text, the match rules, and the directory attribute names (`Ad`). Nothing about your report or directory is in the code; it is all in the profile. Optional: `Ad.ManagerInfo` adds directory attributes of each manager (for example a region) to the summary, statements, roll-ups, and dashboard.
-2. **Quote.** Copy `config/quotes/autodesk_quote_2027.psd1` to `inputs/` and enter the real prices. Write amounts as `12000`, `'12000.50'`, or `12000.50d` (a bare `12000.50` is rejected).
+2. **Quote.** Copy `config/quotes/autodesk_quote_2027.psd1` to `inputs/` and enter the real prices. Write amounts as `12000`, `'12000.50'`, or `12000.50d` (a bare `12000.50` is rejected). Optional: `SeatCounts` and `TokensPurchased` (what was bought) turn on the seat vs token comparison on the dashboard. They never change charges.
 3. **Directory snapshot.**
    ```powershell
    ./scripts/Export-AdUsers.ps1 -ProfilePath inputs/autodesk_profile_2027.psd1 -OutFile inputs/ad-snapshot.csv -Server dc1.corp.example
@@ -71,7 +71,7 @@ Keep real files in `inputs/`. Git ignores `inputs/` and `output/`. Never put rea
 | `overrides-template.csv` | owner | One line per key to fix. Fill in and use as overrides. |
 | `exceptions.csv` | owner | Every warning and problem, by row. |
 | `audit.csv` | owner | One row per usage row with every number. Every report number traces here. |
-| `dashboard.html` | owner | One offline page: status, totals, managers, attention list. Lists everyone. |
+| `dashboard.html` | owner | One offline page: status, totals, managers, attention list. Click an offering to see its users and which token users cost as much as a seat. Lists everyone. |
 | `manifest.json` | owner | Run ID, versions, input hashes and row counts, reconciliation. |
 | `inputs/` | owner | Copies of the input files, so the numbers can be rebuilt. |
 | `diagnostics.txt` | **safe to share** | No names, emails, or amounts. Send this when something is wrong. |

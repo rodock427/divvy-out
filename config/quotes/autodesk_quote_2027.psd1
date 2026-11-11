@@ -9,4 +9,7 @@
         'Offering Three' = '7777.77'
     }
     TokenPoolPrice = '61777.77'    # one price for the whole token pool
+    # Optional, dashboard only (never used for charges): what was bought, for the seat vs token comparison.
+    SeatCounts      = @{ 'Offering One' = 40; 'Offering Two' = 25 }   # seats bought per offering. Per seat = price / seats.
+    TokensPurchased = 150000                                         # tokens bought. Per token = TokenPoolPrice / TokensPurchased.
 }

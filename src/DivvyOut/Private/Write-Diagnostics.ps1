@@ -124,6 +124,9 @@ function Write-Diagnostics {
         if ($rec) {
             & $w; & $w '[Reconciliation]'
             & $w "  Pools: $($rec.PoolCount)  unrecoverable: $($rec.UnrecoveredPools)  balanced: $($rec.Balanced)"
+            if ($Result.Quote) {
+                & $w "  Seat vs token (dashboard only): SeatCounts for $($Result.Quote.SeatCounts.Count) of $($Result.Quote.SeatPrices.Count) offerings, TokensPurchased $(if ($Result.Quote.TokensPurchased) { 'given' } else { 'not given' })"
+            }
             if ($amounts) {
                 & $w "  Quote total: $(& $money $rec.QuoteTotal)   Allocated: $(& $money $rec.Allocated)   Unrecovered: $(& $money $rec.Unrecovered)"
                 foreach ($p in $Result.Pools) { & $w ('    {0,-40} price {1,14}  rows {2,5}  allocated {3,14}' -f $p.Name, (& $money $p.Price), $p.RowCount, (& $money $p.Allocated)) }

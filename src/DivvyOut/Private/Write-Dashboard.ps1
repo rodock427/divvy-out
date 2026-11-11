@@ -24,10 +24,48 @@ function Write-Dashboard {
         }
     }
 
+    # Seat vs token (D84). Report only: vendor unit prices from what was bought, never the charges.
+    $q = $Result.Quote
+    $round = { param([decimal]$d) [Math]::Round($d, 2, [MidpointRounding]::AwayFromZero) }
+    $tokenPrice = if ($q.TokensPurchased) { $q.TokenPoolPrice / $q.TokensPurchased } else { $null }
+    $pct = $Result.Config.Dashboard.SeatCandidatePercent
+    $candidates = [System.Collections.Generic.List[object]]::new()
+    $candidateCount = 0
+
     $offerings = foreach ($g in $pool | Group-Object Package) {
         $s = [decimal]0; $t = [decimal]0
         foreach ($r in $g.Group) { $s += $r.SeatCharge; $t += $r.TokenCharge }
-        [ordered]@{ name = $g.Name; seat = Format-Money $s; token = Format-Money $t; total = Format-Money ($s + $t); sort = $s + $t }
+        $perSeat = $null; $seats = $null
+        if ($q.SeatCounts.ContainsKey($g.Name)) { $seats = $q.SeatCounts[$g.Name]; $perSeat = $q.SeatPrices[$g.Name] / $seats }
+        $people = [ordered]@{}
+        foreach ($r in $g.Group) {
+            $k = & $personKey $r
+            if (-not $people.Contains($k)) {
+                $people[$k] = @{ Person = Get-PersonLabel $r $Result; Manager = [string]$r.ManagerName; Seat = $false; Token = $false
+                    Tokens = [decimal]0; Charge = [decimal]0; Rows = [System.Collections.Generic.List[object]]::new() }
+            }
+            $p = $people[$k]
+            if ($r.Access -eq 'Seat') { $p.Seat = $true } else { $p.Token = $true; $p.Tokens += $r.Tokens }
+            $p.Charge += $r.RowTotal; $p.Rows.Add($r)
+        }
+        $users = foreach ($p in $people.Values) {
+            $cost = if ($p.Token -and $null -ne $tokenPrice) { $p.Tokens * $tokenPrice } else { $null }
+            $share = if ($null -ne $cost -and $perSeat) { $cost / $perSeat * 100 } else { $null }
+            $flag = -not $p.Seat -and $null -ne $share -and $share -ge $pct
+            if ($flag) { $candidateCount++; foreach ($r in $p.Rows) { $candidates.Add($r) } }
+            [ordered]@{
+                person = $p.Person; manager = $p.Manager
+                access = if ($p.Seat -and $p.Token) { 'Seat + token' } elseif ($p.Seat) { 'Seat' } else { 'Token' }
+                tokens = $p.Tokens.ToString($inv); tokenCost = if ($null -ne $cost) { Format-Money (& $round $cost) } else { $null }
+                share = if ($null -ne $share) { [Math]::Round($share, 0, [MidpointRounding]::AwayFromZero).ToString($inv) } else { $null }
+                flag = $flag; charge = Format-Money $p.Charge; rows = @(& $idxOf $p.Rows)
+            }
+        }
+        [ordered]@{
+            name = $g.Name; seat = Format-Money $s; token = Format-Money $t; total = Format-Money ($s + $t); sort = $s + $t
+            seats = if ($null -ne $seats) { $seats.ToString($inv) } else { $null }; perSeat = if ($perSeat) { Format-Money (& $round $perSeat) } else { $null }
+            users = @($users)
+        }
     }
     $offerings = @($offerings | Sort-Object @{ e = { $_.sort }; Descending = $true }, @{ e = { $_.name } } | ForEach-Object { $_.Remove('sort'); $_ })
 
@@ -59,6 +97,9 @@ function Write-Dashboard {
         $loopRows = @($rows | Where-Object { $loopIssue[0].Rows -contains $_.RowNumber })
         $attention.Add([ordered]@{ label = 'Rows under a manager loop (left out of roll-ups)'; level = 'warn'; count = $loopRows.Count; rows = @(& $idxOf $loopRows) })
     }
+    if ($candidateCount) {
+        $attention.Add([ordered]@{ label = "Token users whose token cost reaches $($pct.ToString($inv))% of a seat"; level = 'info'; count = $candidateCount; rows = @(& $idxOf $candidates) })
+    }
     $badOv = @($Result.Overrides.Items | Where-Object { $_.Status -like 'Override*' })
     if ($badOv.Count) { $attention.Add([ordered]@{ label = 'Overrides that could not be applied (see exceptions.csv)'; level = 'warn'; count = $badOv.Count; rows = @() }) }
 
@@ -85,6 +126,10 @@ function Write-Dashboard {
         }
         split       = [ordered]@{ seat = Format-Money $seat; token = Format-Money $token }
         managerInfo = @($Result.Config.Ad.ManagerInfo | ForEach-Object Label)
+        seatCompare = [ordered]@{
+            percent = $pct.ToString($inv); tokensBought = if ($q.TokensPurchased) { $q.TokensPurchased.ToString($inv) } else { $null }
+            tokenPrice = if ($null -ne $tokenPrice) { [Math]::Round($tokenPrice, 4, [MidpointRounding]::AwayFromZero).ToString($inv) } else { $null }
+        }
         managers    = @($managers)
         attention   = @($attention)
         offerings   = @($offerings)

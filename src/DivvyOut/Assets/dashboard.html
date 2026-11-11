@@ -60,7 +60,9 @@
   td { border-bottom: 1px solid var(--line); padding: 5px 6px; }
   th.num { text-align: right; }
   .scroll { overflow-x: auto; }
-  #detail[hidden] { display: none; }
+  #detail[hidden], #offer[hidden] { display: none; }
+  tr.click { cursor: pointer; } tr.click:hover { background: var(--hover); }
+  .flag { font-weight: 650; }
 
   @media print {
     .controls, #search, .no-print { display: none !important; }
@@ -112,8 +114,20 @@
 
   <section>
     <h2>Charge by offering</h2>
+    <p class="note">Click an offering to see its users.</p>
     <div class="legend" id="off-legend"></div>
     <div class="bars" id="offerings"></div>
+  </section>
+
+  <section id="offer" hidden>
+    <h2 id="offer-title"></h2>
+    <p class="note" id="offer-note"></p>
+    <div class="controls">
+      <input type="search" id="offer-search" placeholder="Search people or managers" aria-label="Search people or managers">
+      <button type="button" id="offer-flag" aria-pressed="false">Flagged only</button>
+    </div>
+    <div class="scroll"><table id="offer-table"></table></div>
+    <div class="controls no-print"><button type="button" id="offer-more"></button> <button type="button" id="offer-close">Close</button></div>
   </section>
 
   <section>
@@ -273,8 +287,51 @@
   var offMax = Math.max.apply(null, D.offerings.map(function (o) { return v(o.seat) + v(o.token); }).concat([0]));
   bars($('offerings'), D.offerings.map(function (o) {
     return { label: o.name, segs: [{ value: o.seat, cls: 's1', title: o.name + ' seats: ' + money(o.seat) }, { value: o.token, cls: 's2', title: o.name + ' tokens: ' + money(o.token) }],
-             right: money(o.total), title: o.name + ': ' + money(o.total) + ' (seats ' + money(o.seat) + ', tokens ' + money(o.token) + ')' };
+             right: money(o.total), title: o.name + ': ' + money(o.total) + ' (seats ' + money(o.seat) + ', tokens ' + money(o.token) + ')',
+             click: function () { showOffering(o); } };
   }), offMax);
+
+  // One offering's users, with the seat vs token comparison (vendor unit prices from the quote, not the charges).
+  var off = { o: null, q: '', flagged: false, all: false }, SC = D.seatCompare;
+  function showOffering(o) {
+    off.o = o; off.q = ''; off.flagged = false; off.all = false; $('offer-search').value = ''; $('offer-flag').setAttribute('aria-pressed', 'false');
+    $('offer').hidden = false; $('offer-title').textContent = o.name + ' · ' + plural(o.users.length, 'user', 'users');
+    var n = [];
+    n.push(o.perSeat ? 'Per seat ' + money(o.perSeat) + ' (price ÷ ' + count(o.seats) + ' seats bought).' : 'No seat count for this offering in the quote (SeatCounts), so no seat comparison.');
+    n.push(SC.tokenPrice ? 'Per token $' + SC.tokenPrice + ' (pool ÷ ' + count(SC.tokensBought) + ' tokens bought).' : 'No TokensPurchased in the quote, so no token cost.');
+    if (o.perSeat && SC.tokenPrice) n.push(WARN + ' = token user with no seat whose token cost reaches ' + SC.percent + '% of a seat.');
+    n.push('Charge is what this run charged. Token cost and % of a seat use the vendor prices.');
+    $('offer-note').textContent = n.join(' ');
+    drawOffering();
+    $('offer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function drawOffering() {
+    var o = off.o, list = o.users.slice();
+    if (off.flagged) list = list.filter(function (u) { return u.flag; });
+    if (off.q) { var q = off.q.toLowerCase(); list = list.filter(function (u) { return (u.person + '\n' + u.manager).toLowerCase().indexOf(q) >= 0; }); }
+    list.sort(function (a, b) { return (b.flag - a.flag) || (v(b.tokenCost) - v(a.tokenCost)) || (v(b.charge) - v(a.charge)) || a.person.localeCompare(b.person); });
+    var shown = off.all ? list : list.slice(0, 100);
+    var t = $('offer-table'); t.textContent = '';
+    var hr = el('tr');
+    [['Person'], ['Manager'], ['Access'], ['Tokens', 'num'], ['Token cost', 'num'], ['% of a seat', 'num'], ['Charge', 'num']].forEach(function (h) { hr.appendChild(el('th', h[1] || null, h[0])); });
+    var th = el('thead'); th.appendChild(hr); t.appendChild(th);
+    var tb = el('tbody');
+    shown.forEach(function (u) {
+      var tr = el('tr', 'click' + (u.flag ? ' flag' : ''));
+      tr.title = 'Show ' + u.person + '’s rows';
+      [[(u.flag ? WARN + ' ' : '') + u.person], [u.manager || '–'], [u.access], [u.access === 'Seat' ? '–' : count(u.tokens), 'num'],
+       [u.tokenCost ? money(u.tokenCost) : '–', 'num'], [u.share ? u.share + '%' : '–', 'num'], [money(u.charge), 'num']].forEach(function (c) { tr.appendChild(el('td', c[1] || null, c[0])); });
+      tr.addEventListener('click', function () { showRows(u.person + ' · ' + o.name, u.rows); });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    $('offer-more').hidden = list.length <= 100;
+    $('offer-more').textContent = off.all ? 'Show first 100' : 'Show all ' + count(list.length);
+  }
+  $('offer-search').addEventListener('input', function (e) { off.q = e.target.value.trim(); drawOffering(); });
+  $('offer-flag').addEventListener('click', function () { off.flagged = !off.flagged; $('offer-flag').setAttribute('aria-pressed', off.flagged); drawOffering(); });
+  $('offer-more').addEventListener('click', function () { off.all = !off.all; drawOffering(); });
+  $('offer-close').addEventListener('click', function () { $('offer').hidden = true; });
 
   // Top token users
   var tMax = Math.max.apply(null, D.topTokens.map(function (t) { return v(t.charge); }).concat([0]));
