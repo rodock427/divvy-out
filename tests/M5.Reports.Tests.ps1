@@ -158,7 +158,7 @@ Describe 'Exceptions report (spec 10)' {
         @{ Code = 'NoMatch' }, @{ Code = 'DisabledUser' }, @{ Code = 'Excluded' }, @{ Code = 'AmbiguousMatch' }
         @{ Code = 'NeedsOwnerNoManager' }, @{ Code = 'NeedsOwnerManagerDisabled' }, @{ Code = 'NeedsOwnerManagerNotFound' }
         @{ Code = 'FallbackRule' }, @{ Code = 'PreferEnabled' }, @{ Code = 'SeatTokensIgnored' }, @{ Code = 'DuplicateSeatRows' }
-        @{ Code = 'MixedAccess' }, @{ Code = 'OverrideNoHit' }
+        @{ Code = 'MixedAccess' }, @{ Code = 'OverrideNoHit' }, @{ Code = 'MovedToSeat' }
     ) {
         @($ex | Where-Object Code -eq $Code).Count | Should -BeGreaterThan 0
     }

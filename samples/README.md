@@ -26,4 +26,8 @@ Planted cases:
 | Team `=Team Formula` | written as text in CSV (formula escaping) |
 | Offering `Offering 2 (Legacy)` | alias of `Offering Two` |
 | Non-English names, cost centers with commas | UTF-8 and `,` → `-` |
+| `Offering Four`: token rows only, not in the quote | charged from the token pool, no error (D82) |
+| Every user has a `physicalDeliveryOfficeName` (site, by department) | `Ad.ManagerInfo` shows each manager's site in the summary, statements, roll-ups, dashboard |
+| Quote has `SeatCounts` and `TokensPurchased` | dashboard: click an offering for the seat vs token comparison and ⚠ flags |
 | `overrides.csv`: exclude, link, fix ambiguous, manager, cost center, include (on leave), tree fix, typo | M3 tests |
+| `overrides.csv`: `SeatFor = Offering Two` for the heaviest token user of it | that person is charged one seat of Offering Two; their tokens leave the token pool (`MovedToSeat`) |

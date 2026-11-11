@@ -37,7 +37,7 @@
 
     Ad = @{
         # Columns Export-AdUsers.ps1 writes. Every attribute the profile names must be in the snapshot.
-        Attributes          = 'objectGUID', 'sAMAccountName', 'userPrincipalName', 'mail', 'displayName', 'manager', 'distinguishedName', 'Enabled', 'proxyAddresses', 'costCenter'
+        Attributes          = 'objectGUID', 'sAMAccountName', 'userPrincipalName', 'mail', 'displayName', 'manager', 'distinguishedName', 'Enabled', 'proxyAddresses', 'costCenter', 'physicalDeliveryOfficeName'
         IdAttribute         = 'objectGUID'          # unique user ID. The run stops if values repeat.
         EnabledColumn       = 'Enabled'
         EnabledValue        = 'True'
@@ -48,7 +48,7 @@
         CostCenter          = @{ Attribute = 'costCenter'; Replace = @( @{ From = ','; To = '-' } ) }   # optional; delete to hide
         # Optional: extra manager columns in the summary, statements, roll-ups and dashboard, from each manager's own record.
         # Each Attribute must also be in Attributes. Order is kept.
-        # ManagerInfo       = @( @{ Label = 'Region'; Attribute = 'extensionAttribute5' }, @{ Label = 'Site'; Attribute = 'physicalDeliveryOfficeName' } )
+        ManagerInfo         = @( @{ Label = 'Site'; Attribute = 'physicalDeliveryOfficeName' } )   # more: @{ Label = 'Region'; Attribute = 'extensionAttribute5' }
     }
 
     Charge = @{

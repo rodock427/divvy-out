@@ -8,7 +8,7 @@ Contents (see samples/README.md for the full list of planted cases):
                     old disabled duplicates, ambiguous shared mailboxes, a manager loop,
                     managers missing from the snapshot, non-English names, cost centers with commas
   autodesk_usage_2027.csv/.xlsx   ~400 usage rows in the 24-column fake layout
-  overrides.csv     sample overrides (exclude, link, manager, cost center, stale)
+  overrides.csv     sample overrides (exclude, link, manager, cost center, include, tree fix, typo, SeatFor)
 #>
 param([string]$OutDir = $PSScriptRoot, [int]$Seed = 2027)
 $ErrorActionPreference = 'Stop'
@@ -25,6 +25,7 @@ $lastNames = 'Rivera', 'Nair', 'Okafor', 'Fischer', 'Brandt', 'Whitfield', 'Lee'
 'Zhang', 'Ní Bhriain', 'Schäfer', 'Dubois', 'Mensah', 'Costa', 'Kowalska', 'Saleh', 'Sato', 'Peña', 'Hansen', 'Trần', 'Çelik',
 'Souza', 'Kahale', 'Petrov'
 $departments = 'Design', 'Engineering', 'Operations', 'Research'
+$sites = 'North Campus', 'Harbor Office', 'Remote'   # by department, no random draw (keeps every planted case in place)
 
 function ConvertTo-AsciiName([string]$s) {
     foreach ($pair in @(@('ø', 'o'), @('Ø', 'O'), @('ł', 'l'), @('Ł', 'L'), @('đ', 'd'), @('ı', 'i'), @('ß', 'ss'), @('æ', 'ae'))) { $s = $s.Replace($pair[0], $pair[1]) }
@@ -64,6 +65,7 @@ function New-FakeUser {
         Enabled           = if ($Disabled) { 'False' } else { 'True' }
         proxyAddresses    = $proxy -join ';'
         costCenter        = ('{0}, {1}, Corporate' -f (4100 + $departments.IndexOf($Dept) * 100 + $rnd.Next(10)), $Dept)
+        physicalDeliveryOfficeName = $sites[[Math]::Max(0, $departments.IndexOf($Dept)) % $sites.Count]
     }
     $users.Add($u)
     $u
@@ -195,17 +197,24 @@ $rows = $usage.ToArray()
 for ($i = $rows.Count - 1; $i -gt 0; $i--) { $j = $rnd.Next($i + 1); $t = $rows[$i]; $rows[$i] = $rows[$j]; $rows[$j] = $t }
 
 # --- Overrides ---
+# SeatFor: the heaviest live token user of Offering Two whose only usage row is that token row
+# (so no seat under another spelling or alias). Picked without a random draw.
+$liveMail = @{}; foreach ($u in $live) { if ($u.mail) { $liveMail[$u.mail] = $true } }
+$rowsPerMail = @{}; foreach ($r in $rows) { $m = $r.'Source Email'.Trim().ToLowerInvariant(); $rowsPerMail[$m] = 1 + $(if ($rowsPerMail.ContainsKey($m)) { $rowsPerMail[$m] } else { 0 }) }
+$seatFor = @($rows | Where-Object { $_.'Offering Name' -eq 'Offering Two' -and $_.'Access Options' -eq 'Tokens' -and $liveMail.ContainsKey($_.'Source Email') -and $rowsPerMail[$_.'Source Email'] -eq 1 } |
+        Sort-Object @{ e = { [int]$_.'Tokens Used' }; Descending = $true }, @{ e = { $_.'Source Email' } })[0].'Source Email'
 $excluded = $live[150]
 $linkTarget = $live[151]
 $overrides = @(
-    [pscustomobject][ordered]@{ Key = $excluded.mail; Manager = ''; CostCenter = ''; Exclude = 'Y'; Include = ''; LinkTo = ''; Reason = 'Left in October'; By = 'owner'; Date = '2026-11-01' }
-    [pscustomobject][ordered]@{ Key = 'freelancer1@contractor.example'; Manager = ''; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = $linkTarget.sAMAccountName; Reason = 'Personal address of a staff member'; By = 'owner'; Date = '2026-11-01' }
-    [pscustomobject][ordered]@{ Key = $sharedMail[0].mail; Manager = ''; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = "CORP\$($sharedMail[0].sAMAccountName)"; Reason = 'Shared mailbox, real user'; By = 'owner'; Date = '2026-11-01' }
-    [pscustomobject][ordered]@{ Key = $ghostStaff[0].sAMAccountName; Manager = $managers[0].mail; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = ''; Reason = 'Manager is in another domain'; By = 'owner'; Date = '2026-11-01' }
-    [pscustomobject][ordered]@{ Key = $live[160].mail; Manager = ''; CostCenter = '9999, Special Projects, Corporate'; Exclude = ''; Include = ''; LinkTo = ''; Reason = 'Billed to project'; By = 'owner'; Date = '2026-11-01' }
-    [pscustomobject][ordered]@{ Key = $departedStaff[0].sAMAccountName; Manager = ''; CostCenter = ''; Exclude = ''; Include = 'Y'; LinkTo = ''; Reason = 'On leave, still charged'; By = 'owner'; Date = '2026-11-01' }
-    [pscustomobject][ordered]@{ Key = $treeFix.sAMAccountName; Manager = $managers[11].mail; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = ''; Reason = 'Reorg not in AD yet'; By = 'owner'; Date = '2026-11-01' }
-    [pscustomobject][ordered]@{ Key = 'nobody.here@corp.example'; Manager = ''; CostCenter = ''; Exclude = 'Y'; Include = ''; LinkTo = ''; Reason = 'Typo on purpose: finds nobody'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = $excluded.mail; Manager = ''; CostCenter = ''; Exclude = 'Y'; Include = ''; LinkTo = ''; SeatFor = ''; Reason = 'Left in October'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = 'freelancer1@contractor.example'; Manager = ''; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = $linkTarget.sAMAccountName; SeatFor = ''; Reason = 'Personal address of a staff member'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = $sharedMail[0].mail; Manager = ''; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = "CORP\$($sharedMail[0].sAMAccountName)"; SeatFor = ''; Reason = 'Shared mailbox, real user'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = $ghostStaff[0].sAMAccountName; Manager = $managers[0].mail; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = ''; SeatFor = ''; Reason = 'Manager is in another domain'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = $live[160].mail; Manager = ''; CostCenter = '9999, Special Projects, Corporate'; Exclude = ''; Include = ''; LinkTo = ''; SeatFor = ''; Reason = 'Billed to project'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = $departedStaff[0].sAMAccountName; Manager = ''; CostCenter = ''; Exclude = ''; Include = 'Y'; LinkTo = ''; SeatFor = ''; Reason = 'On leave, still charged'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = $treeFix.sAMAccountName; Manager = $managers[11].mail; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = ''; SeatFor = ''; Reason = 'Reorg not in AD yet'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = $seatFor; Manager = ''; CostCenter = ''; Exclude = ''; Include = ''; LinkTo = ''; SeatFor = 'Offering Two'; Reason = 'Heavy token user, seat in the new quote'; By = 'owner'; Date = '2026-11-01' }
+    [pscustomobject][ordered]@{ Key = 'nobody.here@corp.example'; Manager = ''; CostCenter = ''; Exclude = 'Y'; Include = ''; LinkTo = ''; SeatFor = ''; Reason = 'Typo on purpose: finds nobody'; By = 'owner'; Date = '2026-11-01' }
 )
 
 # --- Write ---
