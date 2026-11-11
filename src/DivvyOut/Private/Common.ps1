@@ -92,6 +92,7 @@ function Get-SortedByKey {
     if (-not $Items -or $Items.Count -lt 2) { return $Items }
     $keys = [string[]]@(foreach ($i in $Items) { & $Key $i })
     $arr = [object[]]$Items.Clone()
-    [Array]::Sort($keys, $arr, [StringComparer]::Ordinal)
+    # Cast to [Array]/IComparer: otherwise PowerShell binds the generic overload and sorts a copy of $arr.
+    [Array]::Sort([Array]$keys, [Array]$arr, [System.Collections.IComparer][StringComparer]::Ordinal)
     $arr
 }

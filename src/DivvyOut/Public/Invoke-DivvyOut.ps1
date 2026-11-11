@@ -28,6 +28,7 @@ function Invoke-DivvyOut {
         Resolve-Override -Result $result
         Assert-NoError $result 'Override file check failed'
         Resolve-Mapping -Result $result
+        Invoke-Allocation -Result $result
         foreach ($line in $result.MatchReport.Lines) { Write-Host "  $line" }
         $result.Status = 'VALIDATED'
     }

@@ -48,3 +48,10 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D38. Directory manager lookup** compares the reference ignoring case and outer spaces (AD DNs ignore case). Two directory users with the same reference = manager not found.
 - **D39. Cost center** comes from the matched user (after `LinkTo`). `Replace` is a literal text replace, then trim. An override `CostCenter` replaces the final value; the raw value stays for the audit trail.
 - **D40. `Test-DivvyOutInput`** also checks the overrides file and sets row states; it never throws on bad inputs (look at `.Issues`).
+
+## Allocation
+
+- **D41. Vendor rule interface.** A rule file registers `@{ Name; RequiredFields; AccessKinds; Allocate }` in `$script:VendorRules[<Vendor>]`. `Allocate` names a function that takes `-PoolRows` (sorted, not `NotHere`), `-AllRows`, `-Quote`, `-Policy`, sets the row charges, and returns its pools. The core checks every pool and the total.
+- **D42. Unrecoverable pools are found by the rule**: a seat offering with a price and no pool seat rows; the token pool with a price and zero pool tokens (including token rows that all used 0 tokens). The stop (`-AllowUnrecovered`) and the invariant check are in the core, in M4, because the M4 tests cover them.
+- **D43. Pool info on `NotHere` rows** (offering price, pool seat rows, rate) is left blank; their charges are 0.
+- **D44. A price of 0** is a valid pool. Its rows are charged 0.00 and it is never unrecoverable.
