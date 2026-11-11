@@ -1,0 +1,11 @@
+﻿Assigned User,Product,License Type,Department,Seats Assigned
+dev@example.test,Suite,Named User,Build,1
+DEV@example.test ,Suite,Named User,Build,1
+eli@example.test,Suite,Named User,Build,1
+fay@example.test,Suite,Named User,Build,1
+gus@example.test,Suite,Named User,Design,1
+bram@example.test,Suite,Named User,Build,1
+hal@example.test,Viewer,Named User,Design,1
+ivy@example.test,Viewer,Named User,Design,1
+jo@example.test,Viewer,Named User,Design,1
+ghost@example.test,Viewer,Named User,Design,1

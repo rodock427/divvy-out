@@ -1,0 +1,11 @@
+﻿EmployeeNo,FullName,WorkEmail,ManagerEmployeeNo,Status,CostCentre
+E100,Ada Fakename,ada@example.test,,Active,"CC 100, HQ"
+E110,Bram Fakename,bram@example.test,E100,Active,"CC 110, Build"
+E120,Cleo Fakename,cleo@example.test,E100,Active,"CC 120, Design"
+E111,Dev Fakename,dev@example.test,E110,Active,"CC 110, Build"
+E112,Eli Fakename,eli@example.test,E110,Active,"CC 110, Build"
+E113,Fay Fakename,fay@example.test,E110,Terminated,"CC 110, Build"
+E121,Gus Fakename,gus@example.test,E120,Active,"CC 120, Design"
+E122,Hal Fakename,hal@example.test,E120,Active,"CC 120, Design"
+E123,Ivy Fakename,ivy@example.test,E999,Active,"CC 120, Design"
+E124,Jo Fakename,jo@example.test,E120,Active,"CC 120, Design"
