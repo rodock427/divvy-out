@@ -58,13 +58,22 @@ $byId = [ordered]@{}
 foreach ($s in $servers) {
     $q = $query.Clone()
     if ($s) { $q.Server = $s }
-    foreach ($u in Get-ADUser @q) {
+    $where = if ($s) { $s } else { 'the default domain controller' }
+    Write-Host "Reading users from $where ..."
+    $n = 0
+    # Pipeline, not foreach(...): users are handled as they arrive, so progress shows.
+    Get-ADUser @q | ForEach-Object {
+        $n++
+        if ($n % 1000 -eq 0) { Write-Progress -Activity "Reading users from $where" -Status "$n users" }
         $row = [ordered]@{}
-        foreach ($a in $attributes) { $row[$a] = ConvertTo-CellText $u.$a }
+        foreach ($a in $attributes) { $row[$a] = ConvertTo-CellText $_.$a }
         $id = $row[$idAttr]
         if ($id -and -not $byId.Contains($id)) { $byId[$id] = $row }
     }
+    Write-Progress -Activity "Reading users from $where" -Completed
+    Write-Host "  $n users read."
 }
+Write-Host 'Resolving managers ...'
 
 # Manager reference -> manager record. In AD the reference is a DN, so ManagerKeyAttribute is distinguishedName.
 $byKey = @{}
@@ -76,6 +85,7 @@ foreach ($row in $byId.Values) {
     if ($ref -and -not $mgr) {
         if (-not $outside.ContainsKey($ref)) {
             $outside[$ref] = $null
+            Write-Progress -Activity 'Looking up managers outside the search scope' -Status "$($outside.Count) so far"
             foreach ($s in $servers) {
                 try {
                     $q = @{ Identity = $ref; Properties = $managerColumns }
@@ -93,6 +103,9 @@ foreach ($row in $byId.Values) {
     }
     foreach ($c in $managerColumns) { $row["manager_$c"] = if ($mgr) { $mgr[$c] } else { '' } }
 }
+
+Write-Progress -Activity 'Looking up managers outside the search scope' -Completed
+if ($outside.Count) { Write-Host "  $($outside.Count) managers looked up outside the search scope ($(@($outside.Values | Where-Object { $null -eq $_ }).Count) not found)." }
 
 $ids = [string[]]@($byId.Keys)
 [Array]::Sort($ids, [StringComparer]::Ordinal)
