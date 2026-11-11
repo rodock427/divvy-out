@@ -18,6 +18,8 @@ function Test-DivvyOutInput {
     $result.Status = if (Get-IssueCount $result Error) { 'INVALID' } else { 'VALIDATED' }
     if ($result.Status -eq 'VALIDATED') {
         Resolve-UserMatch -Result $result
+        Resolve-Override -Result $result
+        if (Get-IssueCount $result Error) { $result.Status = 'INVALID' } else { Resolve-Mapping -Result $result }
         foreach ($line in $result.MatchReport.Lines) { Write-Host "  $line" }
     }
     foreach ($i in $result.Issues) { Write-Host ('{0,-7} {1,-22} {2}' -f $i.Level.ToUpper(), $i.Code, $i.Message) }

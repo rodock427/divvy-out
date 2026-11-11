@@ -85,3 +85,13 @@ function Assert-NoError {
     $lines = $errors | ForEach-Object { " - [$($_.Code)] $($_.Message)" + $(if ($_.Rows.Count) { " Rows: $(Format-RowList $_.Rows 10)" } else { '' }) }
     Stop-Divvy ("$What with $($errors.Count) error(s):`n" + ($lines -join "`n"))
 }
+
+# Items sorted by a string key, ordinal (culture-independent). $Key is a scriptblock: param($item) -> string.
+function Get-SortedByKey {
+    param([object[]]$Items, [scriptblock]$Key)
+    if (-not $Items -or $Items.Count -lt 2) { return $Items }
+    $keys = [string[]]@(foreach ($i in $Items) { & $Key $i })
+    $arr = [object[]]$Items.Clone()
+    [Array]::Sort($keys, $arr, [StringComparer]::Ordinal)
+    $arr
+}

@@ -87,6 +87,13 @@ function Write-Diagnostics {
             foreach ($line in $mr.Lines) { & $w "  $line" }
         }
 
+        $ovr = @($Result.Overrides.Items)
+        if ($ovr.Count) {
+            & $w; & $w '[Overrides]  (keys not shown)'
+            foreach ($g in $ovr | Group-Object Status | Sort-Object Name) { & $w ('  {0,-24} {1,6}' -f $g.Name, $g.Count) }
+            & $w ('  Usage rows with an override: {0}' -f @($Result.Rows | Where-Object Override).Count)
+        }
+
         $rows = @($Result.Rows)
         if ($rows.Count -and $rows[0].State) {
             & $w; & $w '[Row states]'

@@ -36,3 +36,15 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D29. Directory blank IDs** stop the run like repeated IDs.
 - **D30. Match outcomes.** Every row gets `Matched`, `Ambiguous`, `Disabled`, or `NoMatch`. With `PreferEnabled` off, a live and a disabled account on one value are `Ambiguous` (spec step 5). With it on or off, hits that are all disabled count as "disabled" (D12, D13).
 - **D31. `Test-DivvyOutInput`** also runs matching and prints the match report (spec 5.5 lists the match report as part of validation). It writes no files.
+
+## Overrides and states
+
+- **D32. One override per usage row.** Usage-key overrides apply to the rows they find. Directory-key overrides apply to every row of that user (after any `LinkTo`). If two overrides reach the same row, neither is applied anywhere (`OverrideConflict`, a bad override).
+- **D33. `LinkTo`** needs a Key found by a usage-field key rule (it re-points usage rows). It finds the user with the directory key rules only. A linked row shows match status `Linked`. Linking to a disabled user makes the row `Disabled` unless `Include = Y`.
+- **D34. Flags.** `Exclude` and `Include` accept Y/Yes/True/1 (any case) or blank/N/No/False/0. Anything else is a bad override.
+- **D35. Precedence.** `Exclude` beats everything. `Ambiguous` and `NoMatch` rows are not fixed by `Manager` alone (they need `LinkTo`). An override manager beats the directory manager, even if that manager is disabled (warned).
+- **D36. Duplicate keys** (same text ignoring case), and two directory-key overrides that find the same user, are bad overrides.
+- **D37. Stale** = finds a person but touches no usage row and sets no manager. Only a warning. A directory-key override with a Manager and no usage rows is `TreeOnly` (org tree fix, spec 8).
+- **D38. Directory manager lookup** compares the reference ignoring case and outer spaces (AD DNs ignore case). Two directory users with the same reference = manager not found.
+- **D39. Cost center** comes from the matched user (after `LinkTo`). `Replace` is a literal text replace, then trim. An override `CostCenter` replaces the final value; the raw value stays for the audit trail.
+- **D40. `Test-DivvyOutInput`** also checks the overrides file and sets row states; it never throws on bad inputs (look at `.Issues`).
