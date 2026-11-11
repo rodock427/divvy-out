@@ -79,3 +79,9 @@ Choices made where the spec was silent or unclear. Newest at the bottom of each 
 - **D60. Name sort keys** (managers, people, rounding ties) join parts with a NUL character, so "mgr" sorts before "mgr2". Still ordinal and deterministic.
 - **D61. File and sheet names** follow Windows and Excel rules in code (not the build OS): invalid characters become `_`, reserved names (CON, LPT1, ...) get a leading `_`, 100-character file names, 31-character sheet names, case-insensitive uniqueness with a 6-hex ID from the manager's key.
 - **D62. Roll-up checks** (spec 8) run on every run before any report is written; a failure stops the run as an internal error.
+
+## Audit and run folder (M7)
+
+- **D63. Input copies.** Every run copies its input files to `<run>/inputs/` (spec 9). The M7 list says `-ArchiveInputs`, but spec 9 says copying is the default and a switch to turn it off comes later (M9). No switch yet. Two inputs with the same file name: the second gets its role as a prefix (`directory-data.csv`). A profile or quote passed as a hashtable is listed as `(in memory)` with no hash.
+- **D64. `manifest.json`** is written only on successful runs (like the other reports, D51). Amounts are strings with 2 decimals (no float rounding in JSON). It holds amounts: owner-only.
+- **D65. Audit numbers.** `Tokens` on a seat row is 0 (ignored); the original text is still in `usage_<header>`. `TokenRate` is the full unrounded rate. A row fixed by `LinkTo` shows `MatchRule = Override`.

@@ -39,6 +39,9 @@ function Invoke-DivvyOut {
         Write-OverridesTemplate -Result $result -Path (Join-Path $runDir 'overrides-template.csv')
         Write-Exceptions -Result $result -Path (Join-Path $runDir 'exceptions.csv')
         Write-Statement -Result $result -Dir $runDir
+        Write-Audit -Result $result -Path (Join-Path $runDir 'audit.csv')
+        Copy-RunInput -Result $result -Dir $runDir
+        Write-Manifest -Result $result -Path (Join-Path $runDir 'manifest.json')
     }
     catch {
         $result.Status = 'FAILED'
