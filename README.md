@@ -88,6 +88,7 @@ Everything except `diagnostics.txt` holds personal data. You decide how long to 
 | `Exclude` | `Y` = not here, not charged. |
 | `Include` | `Y` = charge this user even though they are disabled (for example on leave). |
 | `LinkTo` | Fixes a row that matched nobody or several people: finds the right directory user. |
+| `SeatFor` | Offering name(s), `;` between several. Charges this person one seat of that offering instead of their tokens on it (for seats bought in the new quote). Their tokens leave the token pool. |
 | `Reason`, `By`, `Date` | Shown in the audit trail and on statements. |
 
 An override that finds nobody, finds several people, or clashes with another makes the run `DRAFT` (`Policy.BadOverride`).

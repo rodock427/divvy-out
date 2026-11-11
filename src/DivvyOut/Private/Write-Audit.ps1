@@ -15,7 +15,7 @@ function Write-Audit {
     $columns = @('Row') + $ids + @(if ($hasTeam) { 'Team' }) + @(
         'State', 'Reason', 'MatchStatus', 'MatchRule', 'MatchValue', 'DirectoryValue', 'DirectoryId', 'DirectoryName', 'Candidates',
         'PreferEnabledDropped', 'DisabledSkipped',
-        'Offering', 'OfferingInQuote', 'Access', 'OfferingPrice', 'PoolSeatRows', 'SeatCharge',
+        'Offering', 'OfferingInQuote', 'Access', 'MovedToSeat', 'TokensBeforeSeat', 'OfferingPrice', 'PoolSeatRows', 'SeatCharge',
         'Tokens', 'PoolTokens', 'TokenRate', 'TokenCharge', 'RowTotal',
         'ManagerDirectoryId', 'ManagerDirectory', 'ManagerFinalId', 'ManagerFinal', 'ManagerSource',
         'CostCenterRaw', 'CostCenterFinal',
@@ -37,6 +37,7 @@ function Write-Audit {
         $line.PreferEnabledDropped = if ($row.PreferEnabledDropped) { 'Y' } else { 'N' }
         $line.DisabledSkipped = if ($row.DisabledSkipped) { 'Y' } else { 'N' }
         $line.Offering = $row.PackageRaw; $line.OfferingInQuote = $row.Package; $line.Access = $row.Access
+        $line.MovedToSeat = if ($row.MovedToSeat) { 'Y' } else { 'N' }; $line.TokensBeforeSeat = & $num $row.TokensBeforeSeat
         $line.OfferingPrice = if ($null -ne $row.OfferingPrice) { Format-Money $row.OfferingPrice } else { '' }
         $line.PoolSeatRows = $row.PoolSeatRows
         $line.SeatCharge = Format-Money $row.SeatCharge

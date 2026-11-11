@@ -82,6 +82,38 @@ function Resolve-Mapping {
         if ($cc -and $o -and $o.CostCenter) { $row.CostCenter = $o.CostCenter }
     }
 
+    # SeatFor overrides (DECISIONS D85): the person's token rows on a named offering become ONE seat of it.
+    # The first row (sort key) becomes the seat; any others are NotHere 'MovedToSeat'. Their tokens leave the
+    # token pool. No change if the person already has a seat row on it or no token row on it.
+    $seatFor = [ordered]@{}
+    foreach ($row in $Result.Rows | Where-Object { $_.Override -and $_.Override.SeatFor.Count -and $_.State -ne 'NotHere' }) {
+        $k = "ov$($row.Override.RowNumber)"   # string key: an [ordered] table indexed by an int means position
+        if (-not $seatFor.Contains($k)) { $seatFor[$k] = @{ Override = $row.Override; Rows = [System.Collections.Generic.List[object]]::new() } }
+        $seatFor[$k].Rows.Add($row)
+    }
+    $moved = [System.Collections.Generic.List[int]]::new()
+    $seatNoEffect = [System.Collections.Generic.List[object]]::new()
+    foreach ($e in $seatFor.Values) {
+        foreach ($name in $e.Override.SeatFor) {
+            $mine = @($e.Rows | Where-Object { [string]::Equals($_.Package, $name, [StringComparison]::OrdinalIgnoreCase) })
+            $tokens = @(Get-SortedByKey @($mine | Where-Object Access -eq 'Token') { param($r) Get-RowSortKey $r $Result })
+            if (-not $tokens.Count -or @($mine | Where-Object Access -eq 'Seat').Count) { $seatNoEffect.Add($e.Override); continue }
+            for ($i = 0; $i -lt $tokens.Count; $i++) {
+                $r = $tokens[$i]
+                $r.MovedToSeat = $true; $r.TokensBeforeSeat = $r.Tokens; $r.Tokens = [decimal]0
+                if ($i -eq 0) { $r.Access = 'Seat' } else { $r.State = 'NotHere'; $r.Reason = 'MovedToSeat' }
+                $moved.Add($r.RowNumber)
+            }
+        }
+    }
+    if ($moved.Count) {
+        Add-Issue $Result Info MovedToSeat "$($moved.Count) token rows moved to a seat by override (SeatFor): one seat per person per offering; their tokens leave the token pool." -Rows ([int[]]($moved | Sort-Object))
+    }
+    if ($seatNoEffect.Count) {
+        $u = @($seatNoEffect | Sort-Object RowNumber -Unique)
+        Add-Issue $Result Warning SeatForNoEffect "$($u.Count) override rows: SeatFor changes nothing for an offering, because the person has no token row on it or already has a seat on it." -Rows @($u | ForEach-Object RowNumber) -Detail (($u | ForEach-Object Key) -join '; ')
+    }
+
     # Same user, same offering: two seat rows (Policy.DuplicateSeatRows), or a seat row and a token row (warn).
     $pool = @($Result.Rows | Where-Object { $_.State -ne 'NotHere' -and $_.User })
     $groups = $pool | Group-Object { "$($_.User.Id)|$($_.Package)" } | Where-Object Count -gt 1
@@ -111,11 +143,11 @@ function Resolve-Mapping {
     $noEffect = @{}
     foreach ($row in $Result.Rows | Where-Object Override) {
         $ov = $row.Override
-        $stuck = ($row.State -eq 'NotHere' -and $row.Reason -ne 'Excluded') -or $row.Reason -eq 'AmbiguousMatch'
-        if (($stuck -and ($ov.Manager -or $ov.CostCenter -or $ov.Include)) -or ($ov.CostCenter -and -not $cc)) { $noEffect[$ov.RowNumber] = $ov }
+        $stuck = ($row.State -eq 'NotHere' -and $row.Reason -notin 'Excluded', 'MovedToSeat') -or $row.Reason -eq 'AmbiguousMatch'
+        if (($stuck -and ($ov.Manager -or $ov.CostCenter -or $ov.Include -or ($ov.SeatFor.Count -and -not $row.MovedToSeat))) -or ($ov.CostCenter -and -not $cc)) { $noEffect[$ov.RowNumber] = $ov }
     }
     if ($noEffect.Count) {
-        Add-Issue $Result Warning OverrideNoEffect "$($noEffect.Count) override rows change nothing: Manager, CostCenter, or Include on rows that are not found, disabled, or ambiguous (use LinkTo), or CostCenter with no Ad.CostCenter in the profile." -Rows ([int[]]($noEffect.Keys | Sort-Object)) -Detail ((@($noEffect.Values) | ForEach-Object Key) -join '; ')
+        Add-Issue $Result Warning OverrideNoEffect "$($noEffect.Count) override rows change nothing: Manager, CostCenter, Include, or SeatFor on rows that are not found, disabled, or ambiguous (use LinkTo), or CostCenter with no Ad.CostCenter in the profile." -Rows ([int[]]($noEffect.Keys | Sort-Object)) -Detail ((@($noEffect.Values) | ForEach-Object Key) -join '; ')
     }
 
     $o = @($Result.Rows | Where-Object { $_.Override -and $_.Override.Include -and $_.User -and -not $_.User.Enabled })

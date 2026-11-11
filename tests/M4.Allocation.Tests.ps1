@@ -3,8 +3,8 @@ BeforeAll {
     . $PSScriptRoot/TestHelpers.ps1
     $script:Boss = New-TestAdUser boss
     function Run {
-        param([object[]]$AdUsers, [object[]]$UsageRows, [hashtable]$Quote, [hashtable]$TestProfile = (Get-TestProfile), [string]$Name = 'a', [switch]$AllowUnrecovered)
-        $s = New-TestRun -AdUsers $AdUsers -UsageRows $UsageRows -Quote $Quote -TestProfile $TestProfile -Name $Name
+        param([object[]]$AdUsers, [object[]]$UsageRows, [hashtable]$Quote, [hashtable]$TestProfile = (Get-TestProfile), [string]$Name = 'a', [switch]$AllowUnrecovered, [object[]]$Overrides)
+        $s = New-TestRun -AdUsers $AdUsers -UsageRows $UsageRows -Quote $Quote -TestProfile $TestProfile -Name $Name -Overrides $Overrides
         Invoke-DivvyOut @s -PassThru -AllowUnrecovered:$AllowUnrecovered 6>$null
     }
     function Users { param([int]$N) @($Boss) + @(1..$N | ForEach-Object { New-TestAdUser "u$_" -Manager boss }) }
@@ -190,7 +190,9 @@ Describe 'Reconciliation invariant with random data (spec 7.4)' {
         $quote = @{ Period = '2027'; Currency = 'USD'; TokenPoolPrice = ([decimal]$rnd.Next(0, 5000000) / 100).ToString([cultureinfo]::InvariantCulture)
             SeatPrices = @{} }
         foreach ($o in $offers) { $quote.SeatPrices[$o] = ([decimal]$rnd.Next(0, 5000000) / 100).ToString([cultureinfo]::InvariantCulture) }
-        $r = Run $ad $usage $quote -Name "rand$Seed" -AllowUnrecovered
+        # Some people moved to a seat by override (SeatFor, D85).
+        $ov = @(1..$n | Where-Object { $rnd.NextDouble() -lt 0.2 } | ForEach-Object { [pscustomobject]@{ Key = "u$_@test.example"; SeatFor = $offers[$rnd.Next(3)] } })
+        $r = Run $ad $usage $quote -Name "rand$Seed" -AllowUnrecovered -Overrides $ov
         Assert-Money $r
     }
 }

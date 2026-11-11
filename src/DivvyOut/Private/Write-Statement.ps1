@@ -245,6 +245,11 @@ function Write-XlExplanation {
                 if ($o.Manager) { "manager set to $($x.ManagerName)" }
                 if ($o.CostCenter) { "cost center set to $($o.CostCenter)" }
                 if ($o.Include) { 'charged although disabled in the directory' }
+                if ($x.MovedToSeat) {
+                    $t = [decimal]0
+                    foreach ($y in $Result.Rows) { if ($y.MovedToSeat -and $y.Override -eq $o -and $y.Package -eq $x.Package) { $t += $y.TokensBeforeSeat } }
+                    "moved to a seat instead of $($t.ToString('#,##0.##', $inv)) tokens"
+                }
             ) -join ', '
             $who = (@($o.By, $o.Date) | Where-Object { $_ }) -join ', '
             & $add ("{0}, {1}: {2}. {3}{4}" -f (Get-PersonLabel $x $Result), $x.PackageRaw, $what, $o.Reason, $(if ($who) { " ($who)" } else { '' })) ''

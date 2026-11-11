@@ -89,7 +89,7 @@ function Import-UsageFile {
                 # Filled in later stages:
                 MatchStatus = $null; MatchRule = $null; MatchValue = $null; MatchDirValue = $null; Candidates = @(); User = $null
                 PreferEnabledDropped = $false; DisabledSkipped = $false
-                Override = $null; LinkOverride = $null; State = $null; Reason = $null
+                Override = $null; LinkOverride = $null; State = $null; Reason = $null; MovedToSeat = $false; TokensBeforeSeat = $null
                 ManagerDirId = $null; ManagerDirName = $null; ManagerId = $null; ManagerName = $null; ManagerSource = $null
                 CostCenterRaw = $null; CostCenter = $null
                 OfferingPrice = $null; PoolSeatRows = $null; TokenRate = $null; PoolTokens = $null

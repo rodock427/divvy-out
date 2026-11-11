@@ -6,7 +6,7 @@
 # with Policy.BadOverride = 'Draft', force the run to DRAFT. Stale overrides only warn.
 
 # 'Problem' is written by overrides-template.csv as a hint; it is ignored on read.
-$script:OverrideColumns = 'Key', 'Manager', 'CostCenter', 'Exclude', 'Include', 'LinkTo', 'Reason', 'By', 'Date', 'Problem'
+$script:OverrideColumns = 'Key', 'Manager', 'CostCenter', 'Exclude', 'Include', 'LinkTo', 'SeatFor', 'Reason', 'By', 'Date', 'Problem'
 
 function Import-OverrideFile {
     param([string]$Path, $Result)
@@ -25,7 +25,7 @@ function Import-OverrideFile {
         $get = { param($c) if ($columns -contains $c) { ([string]$rec.$c).Trim() } else { '' } }
         $item = [pscustomobject]@{
             RowNumber = $n; Key = & $get 'Key'; Manager = & $get 'Manager'; CostCenter = & $get 'CostCenter'
-            ExcludeText = & $get 'Exclude'; IncludeText = & $get 'Include'; LinkTo = & $get 'LinkTo'
+            ExcludeText = & $get 'Exclude'; IncludeText = & $get 'Include'; LinkTo = & $get 'LinkTo'; SeatForText = & $get 'SeatFor'; SeatFor = @()
             Reason = & $get 'Reason'; By = & $get 'By'; Date = & $get 'Date'
             Exclude = $false; Include = $false
             Status = 'OK'; TargetKind = $null; TargetRows = @(); TargetUser = $null; KeyRule = $null
@@ -75,6 +75,19 @@ function Resolve-Override {
     $blank = @($items | Where-Object { -not $_.Key })
     if ($blank.Count) { & $flagBad $blank 'OverrideBlankKey' 'Key is blank.' }
     & $flagBad @($items | Where-Object { $_.Status -eq 'OK' -and ($null -eq $_.Exclude -or $null -eq $_.Include) }) 'OverrideBadValue' 'Exclude/Include must be Y or blank.'
+
+    # SeatFor: offering names (';' between several), after Usage.OfferingAliases, that the quote prices as seats (D85).
+    $aliases = $cfg.Usage.OfferingAliases
+    $badSeatFor = @(foreach ($o in $items | Where-Object { $_.Status -eq 'OK' -and $_.SeatForText }) {
+            $ok = $true
+            $o.SeatFor = @(foreach ($n in $o.SeatForText.Split(';') | ForEach-Object Trim | Where-Object { $_ }) {
+                    $a = if ($aliases.ContainsKey($n)) { $aliases[$n] } else { $n }
+                    $canon = $null
+                    if ($Result.Quote.OfferingNames.TryGetValue($a, [ref]$canon)) { $canon } else { $ok = $false }
+                })
+            if (-not $ok) { $o }
+        })
+    & $flagBad $badSeatFor 'OverrideBadValue' 'SeatFor names an offering with no seat price in the quote.'
 
     # Same key text twice.
     $groups = @($items | Where-Object Status -eq 'OK' | Group-Object { $_.Key.ToLowerInvariant() } | Where-Object Count -gt 1)
@@ -152,7 +165,7 @@ function Resolve-Override {
     foreach ($o in $ok | Where-Object TargetKind -eq 'User') { $byUser[$o.TargetUser.Id] = $o }
     # One override acts on a row. Exception: a LinkTo line that only links can be followed by the linked
     # person's own override (link first, then that person's Manager / CostCenter / Exclude / Include).
-    $hasAction = { param($o) [bool]($o.Manager -or $o.CostCenter -or $o.Exclude -or $o.Include) }
+    $hasAction = { param($o) [bool]($o.Manager -or $o.CostCenter -or $o.Exclude -or $o.Include -or $o.SeatFor.Count) }
     $conflict = [System.Collections.Generic.HashSet[object]]::new()
     $apply = @{}
     foreach ($row in $Result.Rows) {
