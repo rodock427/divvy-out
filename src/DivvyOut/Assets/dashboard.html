@@ -42,7 +42,7 @@
   .bar-row.click { cursor: pointer; }
   .bar-row.click:hover, .bar-row.click:focus { background: var(--hover); outline: none; }
   .bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bar-row .name .sub { white-space: normal; overflow-wrap: anywhere; }   /* manager info wraps, never cut off */
+  .bar-row .name .sub { white-space: normal; overflow-wrap: anywhere; line-height: 1.3; }   /* manager info: one line per field, wraps if long */
   .track { display: flex; height: 14px; }
   .seg { height: 14px; min-width: 1px; }
   .s1 { background: var(--s1); } .s2 { background: var(--s2); }
@@ -65,6 +65,10 @@
   tr.click { cursor: pointer; } tr.click:hover { background: var(--hover); }
   .flag { font-weight: 650; }
 
+  @media (max-width: 480px) {   /* phones: one tile per row, wider name column for manager info */
+    .tiles { grid-template-columns: 1fr; }
+    .bar-row { grid-template-columns: minmax(0, 45%) minmax(0, 1fr) auto; }
+  }
   @media print {
     .controls, #search, .no-print { display: none !important; }
     .seg, .chip { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -195,7 +199,7 @@
       var row = el('div', 'bar-row' + (it.click ? ' click' : ''));
       row.title = it.title;
       var name = el('div', 'name', it.label);
-      if (it.sub) name.appendChild(el('div', 'sub', it.sub));
+      [].concat(it.sub || []).forEach(function (t) { name.appendChild(el('div', 'sub', t)); });   // one line each
       row.appendChild(name);
       var tr = el('div', 'track');
       it.segs.forEach(function (s) {
@@ -214,7 +218,8 @@
   var state = { sort: 'charge', view: 'direct', all: false, q: '' };
   function value(m) { return state.view === 'team' ? m.team : m.direct; }
   // Ad.ManagerInfo: 'Region: West · Site: HQ' (blank values left out).
-  function infoText(m) { return D.managerInfo.map(function (l, i) { return m.info[i] ? l + ': ' + m.info[i] : ''; }).filter(Boolean).join(' · '); }
+  function infoParts(m) { return D.managerInfo.map(function (l, i) { return m.info[i] ? l + ': ' + m.info[i] : ''; }).filter(Boolean); }
+  function infoText(m) { return infoParts(m).join(' · '); }
   function drawManagers() {
     var list = D.managers.filter(function (m) { return state.view === 'team' || v(m.direct) > 0 || m.rows.length; });
     if (state.q) { var q = state.q.toLowerCase(); list = list.filter(function (m) { return (m.name + '\n' + m.info.join('\n')).toLowerCase().indexOf(q) >= 0; }); }
@@ -224,7 +229,7 @@
     var max = Math.max.apply(null, shown.map(function (m) { return v(value(m)); }).concat([0]));
     bars($('managers'), shown.map(function (m) {
       var info = infoText(m);
-      return { label: m.name, sub: info, segs: [{ value: value(m), cls: 's1' }], right: money(value(m)),
+      return { label: m.name, sub: infoParts(m), segs: [{ value: value(m), cls: 's1' }], right: money(value(m)),
                title: m.name + (info ? ' (' + info + ')' : '') + ': ' + money(value(m)) + (state.view === 'team' ? ' with teams below (direct ' + money(m.direct) + ')' : ' direct') + ' · ' + plural(m.people, 'person', 'people'),
                click: m.rows.length ? function () { showRows(m.name + (info ? ' · ' + info : ''), m.rows, (state.view === 'team' ? 'Direct reports only. ' : '') + plural(m.rows.length, 'row', 'rows') + '.'); } : null };
     }), max);
