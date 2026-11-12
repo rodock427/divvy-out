@@ -42,6 +42,7 @@
   .bar-row.click { cursor: pointer; }
   .bar-row.click:hover, .bar-row.click:focus { background: var(--hover); outline: none; }
   .bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-row .name .sub { white-space: normal; overflow-wrap: anywhere; }   /* manager info wraps, never cut off */
   .track { display: flex; height: 14px; }
   .seg { height: 14px; min-width: 1px; }
   .s1 { background: var(--s1); } .s2 { background: var(--s2); }
