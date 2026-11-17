@@ -329,3 +329,17 @@ Describe 'Money-path review fixes' {
         $r.Issues | Where-Object Code -eq 'OverrideManagerText' | Should -BeNullOrEmpty
     }
 }
+
+Describe 'samples/overrides-examples.csv' {
+    It 'applies every line to the sample data and leaves no row without an owner' {
+        $repo = Split-Path -Parent $PSScriptRoot
+        $r = Test-DivvyOutInput -Profile (Join-Path $repo 'config/profiles/autodesk_profile_2027.psd1') -Quote (Join-Path $repo 'config/quotes/autodesk_quote_2027.psd1') `
+            -Usage (Join-Path $repo 'samples/autodesk_usage_2027.csv') -Ad (Join-Path $repo 'samples/ad-snapshot.csv') `
+            -Overrides (Join-Path $repo 'samples/overrides-examples.csv') 6>$null
+        @($r.Overrides.Items | Where-Object { $_.Status -notin 'OK', 'TreeOnly' }).Count | Should -Be 0
+        @($r.Rows | Where-Object State -eq 'NeedsOwner').Count | Should -Be 0
+        @($r.Issues | Where-Object { $_.Level -eq 'Warning' -and $_.Code -match 'Override|SeatFor' } | ForEach-Object Code) |
+            Should -Be @('OverrideManagerText')   # the free-text manager line
+        $r.DraftReasons.Count | Should -Be 0
+    }
+}

@@ -103,6 +103,8 @@ Everything except `diagnostics.txt` holds personal data. You decide how long to 
 
 An override that finds nobody, finds several people, or clashes with another makes the run `DRAFT` (`Policy.BadOverride`).
 
+`samples/overrides-examples.csv` has one working line for each kind of override, with the `Reason` saying what it does.
+
 ## Renewal: moving heavy token users to seats
 
 Some people use more tokens than a seat would cost. To move them to seats in the new quote:
